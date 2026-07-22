@@ -24,20 +24,11 @@ allprojects {
 }
 
 subprojects {
-    afterEvaluate { project ->
-        if (project.plugins.hasPlugin('com.android.application') || project.plugins.hasPlugin('com.android.library')) {
-            project.android {
-                buildTypes {
-                    debug {
-                        matchingFallbacks = ['release']
-                    }
-                }
-            }
-            if (project.name == 'capacitor-android') {
-                project.android {
-                    publishing {
-                        allVariants()
-                    }
+    project.plugins.withId('com.android.library') {
+        project.android {
+            buildTypes {
+                debug {
+                    matchingFallbacks = ['release']
                 }
             }
         }
