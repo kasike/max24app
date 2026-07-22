@@ -25,15 +25,10 @@ allprojects {
 
 subprojects {
     plugins.withId('com.android.library') {
-        android {
-            buildTypes {
-                debug {
-                    minifyEnabled false
-                    matchingFallbacks = ['release']
-                }
-                release {
-                    minifyEnabled false
-                    matchingFallbacks = ['release']
+        afterEvaluate {
+            android {
+                publishing {
+                    allVariants()
                 }
             }
         }
