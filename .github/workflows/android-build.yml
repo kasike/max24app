@@ -37,10 +37,10 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew bundleRelease --no-daemon
+          ./gradlew bundleRelease --stacktrace --no-daemon
 
       - name: Upload AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: max24-release-aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
+          path: android/app/build/outputs/bundle/release/*.aab
