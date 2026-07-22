@@ -1,7 +1,13 @@
 import React, { StrictMode, Component, ErrorInfo, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { SplashScreen } from '@capacitor/splash-screen';
 import App from './App.tsx';
 import './index.css';
+
+// Hide Capacitor splash screen safely once web code starts
+SplashScreen.hide().catch(() => {
+  // Ignore error if running on browser/dev server
+});
 
 interface Props {
   children: ReactNode;
