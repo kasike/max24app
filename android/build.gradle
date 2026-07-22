@@ -33,6 +33,13 @@ subprojects {
                     }
                 }
             }
+            if (project.name == 'capacitor-android') {
+                project.android {
+                    publishing {
+                        allVariants()
+                    }
+                }
+            }
         }
     }
 }
