@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store item catalog record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sku": { "type": "string" },
+        "barcode": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "cost": { "type": "number" },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "unit": { "type": "string" }
+      },
+      "required": ["id", "name", "sku", "category", "price", "cost", "stock", "minStock", "unit"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Store staff or role configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "status": { "type": "string" },
+        "joinedDate": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "status", "joinedDate"]
+    },
+    "Sale": {
+      "title": "Sale",
+      "description": "POS Completed transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "tax": { "type": "number" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" }
+      },
+      "required": ["id", "date", "subtotal", "discount", "tax", "total", "paymentMethod"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Store customer record for account ledger",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "StoreSettings": {
+      "title": "StoreSettings",
+      "description": "Multi-tenant configuration for each retail store",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "schedule": { "type": "string" }
+      },
+      "required": ["name", "address", "phone"]
+    },
+    "PendingInvoice": {
+      "title": "PendingInvoice",
+      "description": "Fiscal invoice queue to process asynchronously via background worker",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "storeEmail": { "type": "string" },
+        "saleId": { "type": "string" },
+        "tipoComprobante": { "type": "number" },
+        "docTipo": { "type": "number" },
+        "docNro": { "type": "number" },
+        "total": { "type": "number" },
+        "neto": { "type": "number" },
+        "iva": { "type": "number" },
+        "status": { "type": "string" },
+        "retries": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "storeEmail", "saleId", "tipoComprobante", "docTipo", "total", "status", "retries", "createdAt"]
+    }
+  },
+  "firestore": {
+    "pendingInvoices/{invoiceId}": {
+      "schema": "PendingInvoice",
+      "description": "Offline or delayed AFIP invoices queue for asynchronous processing"
+    },
+    "wsaaTokens/{cuit}": {
+      "schema": "object",
+      "description": "Cached WSAA tokens for AFIP/ARCA authentication to prevent rate limits"
+    },
+    "storeLocks/{storeId}": {
+      "schema": "object",
+      "description": "Distributed lock records to prevent voucher sequence race conditions"
+    },
+    "storeSettings/{email}": {
+      "schema": "StoreSettings",
+      "description": "Multi-tenant configuration and credential certificates"
+    },
+    "storeSettings/{email}/products/{productId}": {
+      "schema": "Product",
+      "description": "Store specific item catalog"
+    },
+    "storeSettings/{email}/employees/{employeeId}": {
+      "schema": "Employee",
+      "description": "Store specific cashier and staff list"
+    },
+    "storeSettings/{email}/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Transaction logs for the shop"
+    },
+    "storeSettings/{email}/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Customer accounting accounts and balance sheets"
+    }
+  }
+}

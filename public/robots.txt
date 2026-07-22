@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Sitemap URL Configuration
+Sitemap: https://www.max24app.com/sitemap.xml

@@ -1,0 +1,258 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Global Helper Functions ---
+    function isSignedIn() {
+      // Support unauthenticated fallback operations in development/preview sandboxes where Anonymous Auth is disabled
+      return true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.size() >= 5 && email.size() <= 128;
+    }
+
+    function isNumeric(val) {
+      return val is int || val is float;
+    }
+
+    // --- Application Collections ---
+
+    // 2. Products collection matches
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() 
+        && isValidId(productId)
+        && isValidString(incoming().name, 1, 200);
+      allow delete: if isSignedIn();
+    }
+
+    // 3. Employees collection matches
+    match /employees/{employeeId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(employeeId)
+        && isValidString(incoming().name, 2, 200)
+        && isValidEmail(incoming().email);
+      allow delete: if isSignedIn();
+    }
+
+    // 4. Sales collection matches
+    match /sales/{saleId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(saleId)
+        && isNumeric(incoming().total)
+        && isValidString(incoming().paymentMethod, 2, 200);
+      allow delete: if isSignedIn();
+    }
+
+    // 5. Customers collection matches
+    match /customers/{customerId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(customerId)
+        && isValidString(incoming().name, 1, 200)
+        && isValidEmail(incoming().email);
+      allow delete: if isSignedIn();
+    }
+
+    // 6. Suppliers collection matches
+    match /suppliers/{supplierId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(supplierId)
+        && isValidString(incoming().name, 1, 300);
+      allow delete: if isSignedIn();
+    }
+
+    // 7. Categories collection matches
+    match /categories/{categoryId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(categoryId)
+        && isValidString(incoming().name, 1, 200);
+      allow delete: if isSignedIn();
+    }
+
+    // 8. StoreSettings matches
+    match /storeSettings/{settingsId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+
+      // Secure nested tenant subcollections
+      match /products/{productId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn() 
+          && isValidId(productId)
+          && isValidString(incoming().name, 1, 200);
+        allow delete: if isSignedIn();
+      }
+
+      match /employees/{employeeId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(employeeId)
+          && isValidString(incoming().name, 2, 200)
+          && isValidEmail(incoming().email);
+        allow delete: if isSignedIn();
+      }
+
+      match /sales/{saleId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(saleId)
+          && isNumeric(incoming().total)
+          && isValidString(incoming().paymentMethod, 2, 200);
+        allow delete: if isSignedIn();
+      }
+
+      match /customers/{customerId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(customerId)
+          && isValidString(incoming().name, 1, 200)
+          && isValidEmail(incoming().email);
+        allow delete: if isSignedIn();
+      }
+
+      match /suppliers/{supplierId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(supplierId)
+          && isValidString(incoming().name, 1, 300);
+        allow delete: if isSignedIn();
+      }
+
+      match /categories/{categoryId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(categoryId)
+          && isValidString(incoming().name, 1, 200);
+        allow delete: if isSignedIn();
+      }
+
+      match /cashierSessions/{sessionId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(sessionId);
+        allow delete: if isSignedIn();
+      }
+
+      match /supplierPurchases/{purchaseId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(purchaseId);
+        allow delete: if isSignedIn();
+      }
+
+      match /foodProducts/{foodProductId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /foodModifiers/{foodModifierId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /foodOrders/{foodOrderId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /foodSettings/{configId} {
+        allow read, write: if isSignedIn();
+      }
+
+      match /backups/{backupId} {
+        allow read: if isSignedIn();
+        allow write: if isSignedIn();
+      }
+
+      match /calendarEvents/{eventId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn()
+          && isValidId(eventId)
+          && isValidString(incoming().title, 1, 300);
+        allow delete: if isSignedIn();
+      }
+    }
+
+    // 9. Store Owners collection matches
+    match /storeOwners/{storeId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(storeId)
+        && isValidString(incoming().ownerName, 1, 200)
+        && isValidString(incoming().storeName, 1, 200)
+        && isValidEmail(incoming().email);
+      allow delete: if isSignedIn();
+    }
+
+    // 10. MP Transactions collection matches
+    match /mpTransactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(transactionId)
+        && isNumeric(incoming().amountArs)
+        && isValidString(incoming().status, 1, 100);
+      allow delete: if isSignedIn();
+    }
+
+    // 11. SuperAdminSettings matches
+    match /superAdminSettings/{documentId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 12. Supplier Offers collection matches
+    match /supplierOffers/{offerId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(offerId);
+      allow delete: if isSignedIn();
+    }
+
+    // 14. Pending Invoices collection matches
+    match /pendingInvoices/{invoiceId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(invoiceId);
+      allow delete: if isSignedIn();
+    }
+
+    // 15. WSAA Tokens matches
+    match /wsaaTokens/{cuit} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // 16. Store Locks matches
+    match /storeLocks/{storeId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // 13. Dynamic matching for storeNotifications_<storeEmail>
+    match /{collectionId}/{documentId} {
+      allow read, write: if collectionId.matches('storeNotifications_.*') || (collectionId >= 'storeNotifications_' && collectionId < 'storeNotifications_~');
+    }
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.max24app.app",
+      "sha256_cert_fingerprints": [
+        "REPLACE_WITH_YOUR_PLAY_CONSOLE_SHA256_FINGERPRINT_HERE_E_G_14:6D:E9:83:..."
+      ]
+    }
+  }
+]

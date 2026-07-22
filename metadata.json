@@ -1,0 +1,8 @@
+{
+  "name": "Remix: MAX24APP - Punto de Venta ",
+  "description": "Sistema de Punto de Venta (POS), control de stock, gestión de empleados, reportes de ventas y administración de suscripciones para tiendas.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
