@@ -8,7 +8,6 @@ on:
 jobs:
   web-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Obtener código
         uses: actions/checkout@v4
@@ -26,6 +25,7 @@ jobs:
         run: npm run build
 
       - name: Subir archivos por FTP
+        if: ${{ secrets.FTP_SERVER != '' }}
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
