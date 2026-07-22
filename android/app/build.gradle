@@ -33,7 +33,7 @@ android {
 
     buildTypes {
         debug {
-            matchingFallbacks = ['release']
+            matchingFallbacks = ['debug', 'release']
         }
         release {
             if (System.getenv("KEYSTORE_PATH") != null && file(System.getenv("KEYSTORE_PATH")).exists()) {
@@ -41,6 +41,7 @@ android {
             } else {
                 signingConfig signingConfigs.debug
             }
+            matchingFallbacks = ['release', 'debug']
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }

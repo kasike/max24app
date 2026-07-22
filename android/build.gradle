@@ -24,11 +24,16 @@ allprojects {
 }
 
 subprojects {
-    project.plugins.withId('com.android.library') {
-        project.android {
-            buildTypes {
-                debug {
-                    matchingFallbacks = ['release']
+    afterEvaluate { project ->
+        if (project.plugins.hasPlugin('com.android.library')) {
+            project.android {
+                buildTypes {
+                    debug {
+                        matchingFallbacks = ['debug', 'release']
+                    }
+                    release {
+                        matchingFallbacks = ['release', 'debug']
+                    }
                 }
             }
         }
