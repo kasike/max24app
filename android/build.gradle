@@ -23,18 +23,6 @@ allprojects {
     }
 }
 
-subprojects {
-    plugins.withId('com.android.library') {
-        afterEvaluate {
-            android {
-                publishing {
-                    allVariants()
-                }
-            }
-        }
-    }
-}
-
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
