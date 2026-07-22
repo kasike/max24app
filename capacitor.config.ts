@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.max24app.pos',
+  appId: 'max24app.com',
   appName: 'MAX24',
   webDir: 'dist',
   server: {
