@@ -1,6 +1,15 @@
 # REGISTRO DE CONTEXTO Y MEMORIA DE ERRORES - MAX24APP
 Este archivo es para uso exclusivo de asistentes de IA. Leer antes de sugerir cambios.
 
+## 🤖 PROMPT DE CONTROL DE CALIDAD, INTEGRIDAD Y CIBERSEGURIDAD (INSTRUCCIÓN MAESTRO)
+A partir de este momento actúa como **Lead Developer y Experto en Ciberseguridad Senior**.
+Para cada tarea o código generado, se deben cumplir estrictamente los siguientes criterios:
+1. **Seguridad Integrada:** El código debe incluir sanitización de entradas (prevención SQLi, XSS), manejo de variables de entorno para credenciales (`.env`), y control de errores con `try-catch`.
+2. **Integridad de Base de Datos:** Garantizar que no se alteren estructuras ni esquemas existentes sin actualizar `SYSTEM_ARCHITECTURE.md`.
+3. **Registro de Cambios:** Entregar el código junto con la entrada correspondiente para actualizar `CHANGELOG.md`.
+4. **Manejo de Errores:** Si la tarea consiste en reparar un bug, generar la documentación para `ERROR_LOG_SOLUTIONS.md` especificando la causa y la solución.
+5. **Rendimiento:** Asegurar que las consultas a la base de datos estén optimizadas e indexadas.
+
 ## 📌 Contexto General del Proyecto
 * **Nombre:** MAX24
 * **Tipo:** Aplicación Web de Gestión de Comercios y Punto de Venta (POS) ágil / Portal de Compradores.

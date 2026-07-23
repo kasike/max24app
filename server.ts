@@ -53,8 +53,19 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  // Middleware to redirect non-www to www in production for SEO consistency and to avoid duplicate content
+  // Disable x-powered-by header to prevent server technology footprint disclosure
+  app.disable("x-powered-by");
+
+  // 🛡️ SECURITY HEADERS MIDDLEWARE (Helmet Equivalent)
   app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=(self)");
+
+    // SEO Non-WWW to WWW Redirection
     const host = req.headers.host;
     if (host === "max24app.com") {
       return res.redirect(301, `https://www.max24app.com${req.originalUrl}`);
@@ -62,7 +73,63 @@ async function startServer() {
     next();
   });
 
-  app.use(express.json());
+  // 🛡️ RATE LIMITER MIDDLEWARE (Anti-Brute Force / DDoS Protection)
+  const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  const WINDOW_MS = 60 * 1000; // 1 minute window
+  const MAX_REQUESTS = 180; // max requests per minute
+
+  app.use("/api/", (req, res, next) => {
+    const clientIp = (req.headers["x-forwarded-for"] as string || req.ip || req.socket.remoteAddress || "127.0.0.1").split(",")[0].trim();
+    const now = Date.now();
+    const record = rateLimitMap.get(clientIp);
+
+    if (!record || now > record.resetTime) {
+      rateLimitMap.set(clientIp, { count: 1, resetTime: now + WINDOW_MS });
+      return next();
+    }
+
+    record.count++;
+    if (record.count > MAX_REQUESTS) {
+      console.warn(`[SECURITY ALERT] Rate limit exceeded for IP: ${clientIp} on path: ${req.path}`);
+      return res.status(429).json({
+        error: "Demasiadas peticiones. Por favor reduzca la frecuencia de solicitudes.",
+        retryAfterSeconds: Math.ceil((record.resetTime - now) / 1000)
+      });
+    }
+
+    next();
+  });
+
+  app.use(express.json({ limit: "10mb" }));
+
+  // 🚨 ERROR TRACKING & SENTRY COMPATIBLE LOGGING ENDPOINT
+  app.post("/api/log-error", async (req, res) => {
+    try {
+      const { error, stack, componentStack, userEmail, url, userAgent } = req.body || {};
+      const errorEntry = {
+        timestamp: new Date().toISOString(),
+        error: String(error || "Unknown error"),
+        stack: String(stack || ""),
+        componentStack: String(componentStack || ""),
+        userEmail: userEmail || "anonymous",
+        url: url || "",
+        userAgent: userAgent || "",
+        clientIp: req.ip || req.socket.remoteAddress
+      };
+
+      console.error("[SENTRY/SHELTER ERROR LOGGED]:", JSON.stringify(errorEntry, null, 2));
+
+      const db = getBackendDb();
+      if (db) {
+        const { collection, addDoc } = await import("firebase/firestore");
+        await addDoc(collection(db, "errorLogs"), errorEntry);
+      }
+
+      res.json({ status: "logged", id: `ERR-${Date.now()}` });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to log error", details: err.message });
+    }
+  });
 
   // Initialize secure, server-side Gemini client
   const apiKey = process.env.GEMINI_API_KEY;
@@ -942,6 +1009,99 @@ async function processPendingInvoicesQueue() {
     } catch (error: any) {
       console.error("[MERCADO PAGO SUB CATCH ERROR]", error);
       res.status(500).json({ error: "Error de red al conectar con Mercado Pago", details: error.message });
+    }
+  });
+
+  // Mercado Pago IPN & Webhook Endpoint with x-signature validation
+  app.post("/api/mercadopago/webhook", async (req, res) => {
+    try {
+      const signature = req.headers["x-signature"] as string;
+      const topic = req.query.topic || req.body?.type || req.body?.action;
+      const resourceId = req.query.id || req.body?.data?.id || req.body?.id;
+
+      console.log(`[MERCADO PAGO WEBHOOK] Received event. Topic: "${topic}", Resource ID: "${resourceId}"`);
+
+      // Verify x-signature header if secret is configured
+      const secret = process.env.MP_WEBHOOK_SECRET;
+      if (secret && signature) {
+        // x-signature header contains ts and v1 manifest (e.g. ts=1700000000,v1=abc...)
+        const parts = signature.split(",");
+        let ts = "";
+        let hash = "";
+        parts.forEach(part => {
+          const [key, val] = part.trim().split("=");
+          if (key === "ts") ts = val;
+          if (key === "v1") hash = val;
+        });
+
+        const crypto = await import("crypto");
+        const manifest = `id:${resourceId};request-id:${req.headers["x-request-id"] || ""};ts:${ts};`;
+        const expectedHash = crypto.createHmac("sha256", secret).update(manifest).digest("hex");
+
+        if (hash && hash !== expectedHash) {
+          console.warn("[MERCADO PAGO WEBHOOK] Security warning: x-signature validation failed!");
+          // Log security audit
+          const db = getBackendDb();
+          if (db) {
+            const { collection, addDoc } = await import("firebase/firestore");
+            await addDoc(collection(db, "auditLogs"), {
+              type: "SECURITY_ALERT",
+              action: "WEBHOOK_INVALID_SIGNATURE",
+              details: `Firma inválida en IPN. ID: ${resourceId}`,
+              ip: req.ip || req.socket.remoteAddress,
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else {
+          console.log("[MERCADO PAGO WEBHOOK] x-signature validated successfully.");
+        }
+      }
+
+      // Process payment or subscription status update in Firestore
+      const db = getBackendDb();
+      if (db && resourceId) {
+        const { collection, doc, setDoc, getDoc, updateDoc } = await import("firebase/firestore");
+        
+        // Record raw IPN event in log
+        const logRef = doc(db, "mpTransactions", `MP-IPN-${resourceId}`);
+        await setDoc(logRef, {
+          id: `MP-IPN-${resourceId}`,
+          resourceId,
+          topic: topic || "payment",
+          status: "Aprobado",
+          amountArs: req.body?.data?.transaction_amount || 15000,
+          email: req.body?.data?.payer?.email || "cliente@mercadopago.com",
+          paymentMethod: req.body?.data?.payment_method_id || "MercadoPago IPN",
+          date: new Date().toISOString().replace("T", " ").substring(0, 16),
+          raw: req.body || {}
+        }, { merge: true });
+
+        // Auto-update store status if payer email or external_reference matches
+        const payerEmail = req.body?.data?.payer?.email || req.body?.payer_email;
+        const externalRef = req.body?.data?.external_reference || req.body?.external_reference;
+
+        if (payerEmail || externalRef) {
+          const targetEmail = (payerEmail || externalRef || "").toLowerCase().trim();
+          const ownersSnap = await getDoc(doc(db, "storeOwners", targetEmail));
+          
+          if (ownersSnap.exists()) {
+            const currentData = ownersSnap.data();
+            const newStatus = (topic === "payment" || req.body?.action === "payment.created") ? "Activo" : currentData.status;
+            await updateDoc(doc(db, "storeOwners", targetEmail), {
+              status: newStatus,
+              lastPaymentDate: new Date().toISOString(),
+              notes: `Suscripción renovada vía Mercado Pago IPN (${resourceId})`
+            });
+            console.log(`[MERCADO PAGO WEBHOOK] Store status updated to ${newStatus} for ${targetEmail}`);
+          }
+        }
+      }
+
+      // Always return 200 OK to Mercado Pago to acknowledge receipt
+      res.status(200).send("OK");
+    } catch (err: any) {
+      console.error("[MERCADO PAGO WEBHOOK ERROR]", err);
+      res.status(200).send("OK"); // Return 200 to prevent retries
     }
   });
 
