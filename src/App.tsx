@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Preferences } from '@capacitor/preferences';
 import { Menu, Building2, ShieldEllipsis, Crown, CheckCircle2, BookOpen, ChevronRight, ChefHat, AlertTriangle } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import POS from './components/POS';
@@ -177,10 +180,43 @@ function KitchenReadyScreen({
 }
 
 export default function App() {
+  const isNativePlatform = Capacitor.isNativePlatform();
+
   const [currentUser, setCurrentUser] = useState<Employee | null>(() => {
     const saved = localStorage.getItem('currentUser');
     return saved ? JSON.parse(saved) : null;
   });
+
+  // Native session restoration effect from Capacitor Preferences
+  useEffect(() => {
+    if (isNativePlatform && !currentUser) {
+      Preferences.get({ key: 'currentUser' }).then(({ value }) => {
+        if (value) {
+          try {
+            const parsed = JSON.parse(value);
+            setCurrentUser(parsed);
+          } catch (e) {
+            console.error("Error parsing saved native user session:", e);
+          }
+        }
+      });
+    }
+  }, []);
+
+  // Sync user session to Capacitor Preferences when changed
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      if (isNativePlatform) {
+        Preferences.set({ key: 'currentUser', value: JSON.stringify(currentUser) }).catch(console.error);
+      }
+    } else {
+      localStorage.removeItem('currentUser');
+      if (isNativePlatform) {
+        Preferences.remove({ key: 'currentUser' }).catch(console.error);
+      }
+    }
+  }, [currentUser, isNativePlatform]);
 
   // Kitchen/Chef dynamic order ready handler state
   const [kitchenReadyOrder, setKitchenReadyOrder] = useState<{ orderId: string, storeEmail: string } | null>(() => {
@@ -276,6 +312,7 @@ export default function App() {
 
   // Authentication State
   const [showLogin, setShowLogin] = useState<boolean>(() => {
+    if (isNativePlatform) return true;
     return localStorage.getItem('showLogin') === 'true';
   });
   const [initialLoginMode, setInitialLoginMode] = useState<'login' | 'register' | 'forgot' | 'buyer_register' | 'supplier_register' | 'employee_login'>(() => {
@@ -289,6 +326,32 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('initialLoginMode', initialLoginMode);
   }, [initialLoginMode]);
+
+  // Native Android Hardware Back Button listener
+  useEffect(() => {
+    if (!isNativePlatform) return;
+
+    const backListener = CapacitorApp.addListener('backButton', () => {
+      // If user is not logged in or currently viewing login page
+      if (!currentUser || showLogin) {
+        CapacitorApp.exitApp();
+      } else if (currentTab !== 'pos' && currentTab !== 'super_admin') {
+        // Return to root tab instead of exiting immediately
+        if (canAccessSuperAdmin && !isSimulatingShop) {
+          setCurrentTab('super_admin');
+        } else {
+          setCurrentTab('pos');
+        }
+      } else {
+        // If already on root tab, exit app
+        CapacitorApp.exitApp();
+      }
+    });
+
+    return () => {
+      backListener.then(handler => handler.remove()).catch(console.error);
+    };
+  }, [isNativePlatform, currentUser, showLogin, currentTab, canAccessSuperAdmin, isSimulatingShop]);
 
   // Store Settings State
   const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
@@ -1542,6 +1605,10 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    if (isNativePlatform) {
+      Preferences.remove({ key: 'currentUser' }).catch(console.error);
+      setShowLogin(true);
+    }
     localStorage.removeItem('is_simulating_shop');
     localStorage.removeItem('simulated_store_email');
     localStorage.removeItem('current_tab');
@@ -2279,7 +2346,7 @@ export default function App() {
             }
           }}
           onRegisterAdmin={handleRegisterAdmin}
-          onBackToLanding={() => setShowLogin(false)}
+          onBackToLanding={isNativePlatform ? undefined : () => setShowLogin(false)}
           initialMode={initialLoginMode}
         />
         <AccessibilityAssistant activeStoreEmail={activeStoreEmail} />
