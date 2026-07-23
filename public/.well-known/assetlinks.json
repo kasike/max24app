@@ -1,14 +1,13 @@
 [
   {
-    "relation": [
-      "delegate_permission/common.handle_all_urls"
-    ],
+    "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.max24app.app",
+      "package_name": "max24app.com",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_YOUR_PLAY_CONSOLE_SHA256_FINGERPRINT_HERE_E_G_14:6D:E9:83:..."
+        "43:10:48:D2:09:4F:84:BE:59:9F:33:F2:18:35:78:C6:A7:77:4B:6B:A7:B4:C7:D5:22:D1:8B:87:9B:AD:2C:49"
       ]
     }
   }
 ]
+
