@@ -127,7 +127,43 @@ La aplicación utiliza **Firebase Firestore** estructurada para entornos **Multi
 
 ---
 
-## 4. Arquitectura de Ciberseguridad y Encriptación
+## 3. Arquitectura del Sistema de Autenticación (Portal Multi-Rol)
+
+La autenticación en MAX24 (`src/components/Login.tsx`) está estructurada por **Portales de Acceso Dedicados** según el rol e intención del usuario:
+
+```
+                                  +---------------------------------------+
+                                  |      PANTALLA DE ACCESO MAX24        |
+                                  +-------------------+-------------------+
+                                                      |
+                    +---------------------------------+---------------------------------+
+                    |                                 |                                 |
+                    v                                 v                                 v
+        +-----------------------+         +-----------------------+         +-----------------------+
+        |   PORTAL COMPRADORES  |         |   PORTAL COMERCIO/POS |         |   PORTAL PROVEEDORES  |
+        +-----------------------+         +-----------------------+         +-----------------------+
+        | - Google SSO (Official)|         | - Dueño/Comercio      |         | - Catálogos Mayoristas|
+        | - Facebook SSO        |         | - Empleado/Cajero (POS)|         | - Zonas/Radios entrega|
+        | - Mapa Sin Registro   |         | - ID Tienda Obligatorio|         | - Pedidos B2B         |
+        | - Historial de Compras|         | - Fichaje Reloj Shift |         +-----------------------+
+        +-----------------------+         | - Demo Sandbox Seguro |
+                                          +-----------------------+
+                                                      |
+                                                      v
+                                        +---------------------------+
+                                        |   CONSOLA MASTER (2FA)    |
+                                        |   Ruta Privada SuperAdmin |
+                                        +---------------------------+
+```
+
+1. **Aislamiento Multi-Tenant**: Los empleados/cajeros requieren el `ID Único de Tienda` o Código de Comercio para asociar la sesión a su tenant correspondiente.
+2. **Eliminación de Vulnerabilidad de Texto Plano**: Se removió el bloque estático de credenciales visibles. El acceso a demostración se realiza mediante tokens dinámicos en segundo plano (**⚡ Probar Demo Sandbox**).
+3. **Control de Asistencia (Reloj Checador)**: Fichaje de turno de trabajo mediante la propiedad `clockInShift` activa al iniciar sesión en el POS.
+4. **Protección Consola Master**: El acceso SuperAdmin (`pezziniarg@gmail.com`) está aislado en el pie de página y requiere verificación OTP de 2 Factores enviada por SMTP desde `seguridad@max24app.com`.
+
+---
+
+## 4. Integraciones con Servicios Externos
 
 1. **Cabeceras de Seguridad (Security Headers):**
    - `X-Content-Type-Options: nosniff`

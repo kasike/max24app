@@ -10,14 +10,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-23
 
 ### Añadido
-- **Implementación de Cabeceras de Seguridad y Rate Limiting en Servidor Express**: Adición de middleware de seguridad estilo Helmet (`X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security`, `Permissions-Policy`) y limitador de velocidad por IP (180 req/min) en `/server.ts`.
-- **Integración de Endpoint de Monitoreo de Errores Sentry/Shelter (`/api/log-error`)**: Recepción automática de trazas de errores de cliente y servidor persistidas en la colección `errorLogs` de Firestore.
-- **Creación de Archivos de Memoria Persistente de Arquitectura**: `SYSTEM_ARCHITECTURE.md`, `CHANGELOG.md` y `ERROR_LOG_SOLUTIONS.md` en la raíz del repositorio.
-- **Validación de Firma IPN Mercado Pago (`x-signature`)**: Verificación de seguridad mediante HMAC-SHA256 para eventos entrantes del Webhook de pasarela.
-- **Vista Previa de Comprobante Fiscal AFIP / ARCA (Factura B)**: Generación e impresión de comprobantes con formato oficial, CAE y desglose de IVA en el panel de SuperAdmin.
+- **Rediseño Arquitectónico de Pantalla de Login por Portales de Rol**: Separación limpia en 3 portales dedicados en `/src/components/Login.tsx`:
+  1. 🛒 **Portal Compradores/Clientes**: Autenticación rápida SSO con logos vectoriales oficiales de Google y Facebook, ingreso con email/contraseña y botón destacado **"🗺️ Explorar Mapa de Comercios (Sin Registro)"** con activación de geolocalización GPS.
+  2. 🏪 **Portal Comercio & POS**: Sub-conmutador entre Dueño/Administrador y Cajero/Empleado con ID de Tienda obligatorio, ingreso por PIN de 4 dígitos y casilla de fichaje de turno de trabajo (`⏱️ Reloj Checador`).
+  3. 🚛 **Portal Proveedores B2B**: Acceso exclusivo para mayoristas y distribuidores con contexto de zonas y radios de entrega por km/provincia.
+- **Acceso Directo Seguro a Consola Master (SuperAdmin)**: Enlace discreto protegido en el pie de página que activa la verificación 2FA para el propietario de la plataforma (`pezziniarg@gmail.com`).
 
 ### Cambiado
-- **Reforzamiento de Seguridad en Credenciales Mercado Pago**: Encriptado AES-256 en pantalla con enmascarado `••••••••` y verificación obligatoria mediante PIN de 2 Factores (2FA).
+- **Eliminación Total de Credenciales en Texto Plano**: Remoción completa del bloque de texto estático `prueba / prueba` y `password123` en la pantalla de inicio de sesión. Reemplazado por botones de simulación segura de un solo clic (**⚡ Probar Demo Sandbox**) que autentican de forma transparente sin exponer contraseñas.
+- **Normalización de Botones de Acción**: Sustitución del texto ambiguo "Confirmar Credenciales" por "Ingresar" e "Ingresar al POS" con estados de carga reactivos.
 
 ---
 

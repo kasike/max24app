@@ -13,7 +13,15 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  X
+  X,
+  ShoppingCart,
+  Store,
+  Truck,
+  Shield,
+  Clock,
+  Compass,
+  MapPin,
+  Zap
 } from 'lucide-react';
 import { Employee } from '../types';
 
@@ -86,7 +94,9 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
     onLoginSuccess(loggedUser);
   };
   
-  // Login Form States
+  // Portal and Login Form States
+  const [mainPortalTab, setMainPortalTab] = useState<'comercio' | 'comprador' | 'proveedor'>('comercio');
+  const [clockInShift, setClockInShift] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [storeIdOrCode, setStoreIdOrCode] = useState('');
@@ -951,103 +961,60 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
           {/* Form conditional render */}
           {mode === 'login' && (
             <div className="space-y-5">
+              
+              {/* Primary Portal Navigation Tabs */}
               <div>
-                <h2 className="text-lg font-black text-slate-900 tracking-tight">Iniciar Sesión</h2>
-                <p className="text-xs text-slate-500 mt-1">Conéctate al sistema para continuar.</p>
-              </div>
+                <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Selecciona tu Portal de Acceso</p>
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100/80 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainPortalTab('comprador');
+                      setLoginError('');
+                    }}
+                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                      mainPortalTab === 'comprador'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    <ShoppingCart className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Compradores</span>
+                  </button>
 
-              {/* Tab Selector: Comercio vs Empleados */}
-              <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200 mb-5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginTab('comercio');
-                    setLoginError('');
-                  }}
-                  className={`flex-1 text-center py-2 text-xs font-black rounded-lg transition-all cursor-pointer ${
-                    loginTab === 'comercio'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-550 hover:text-slate-800'
-                  }`}
-                >
-                  Dueño o Comercio
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginTab('empleado');
-                    setLoginError('');
-                  }}
-                  className={`flex-1 text-center py-2 text-xs font-black rounded-lg transition-all cursor-pointer ${
-                    loginTab === 'empleado'
-                      ? 'bg-white text-orange-650 shadow-xs'
-                      : 'text-slate-550 hover:text-slate-800'
-                  }`}
-                >
-                  Ingreso Empleados
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainPortalTab('comercio');
+                      setLoginError('');
+                    }}
+                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                      mainPortalTab === 'comercio'
+                        ? 'bg-orange-500 text-slate-950 shadow-md shadow-orange-500/20'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    <Store className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Comercio POS</span>
+                  </button>
 
-              {/* Acceso Rápido con Redes Sociales p/ Compradores - ONLY in Comercio tab */}
-              {loginTab === 'comercio' && (
-                <div className="space-y-2 bg-gradient-to-r from-orange-500/10 to-amber-500/5 p-3 rounded-2xl border border-orange-500/30">
-                  <span className="block text-[10px] font-black uppercase tracking-wider text-orange-650 font-mono text-center">➔ Acceso Rápido p/ Compradores</span>
-                  <p className="text-[10px] text-slate-600 text-center leading-relaxed">Conéctate al instante sin contraseñas manuales.</p>
-                  
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      disabled={!!socialLoading}
-                      onClick={() => handleSocialLogin('Google')}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-orange-500 text-slate-950 text-[10px] font-extrabold rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
-                    >
-                      {socialLoading === 'Google' ? (
-                        <span className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <span className="font-mono font-black text-xs text-orange-600">G</span>
-                      )}
-                      <span className="truncate">Gmail</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!!socialLoading}
-                      onClick={() => handleSocialLogin('Facebook')}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-orange-500 text-slate-950 text-[10px] font-extrabold rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
-                    >
-                      {socialLoading === 'Facebook' ? (
-                        <span className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <span className="font-mono font-black text-xs text-orange-600">F</span>
-                      )}
-                      <span className="truncate">Facebook</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={!!socialLoading}
-                      onClick={() => handleSocialLogin('Invitado')}
-                      className="flex flex-col sm:flex-row items-center justify-center gap-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-orange-500 text-slate-950 text-[10px] font-extrabold rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
-                    >
-                      {socialLoading === 'Invitado' ? (
-                        <span className="w-3 h-3 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <span className="font-mono font-black text-xs text-orange-600">I</span>
-                      )}
-                      <span className="truncate">Invitado</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMainPortalTab('proveedor');
+                      setLoginError('');
+                    }}
+                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                      mainPortalTab === 'proveedor'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                    }`}
+                  >
+                    <Truck className="w-4 h-4 shrink-0" />
+                    <span className="truncate">Proveedores</span>
+                  </button>
                 </div>
-              )}
-
-              {/* Separator */}
-              {loginTab === 'comercio' && (
-                <div className="relative flex py-1 items-center">
-                  <div className="flex-grow border-t border-slate-200" />
-                  <span className="flex-shrink mx-3 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-400">O CLAVE DE NEGOCIO</span>
-                  <div className="flex-grow border-t border-slate-200" />
-                </div>
-              )}
+              </div>
 
               {loginError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-600 rounded-xl text-xs flex gap-2.5 items-center">
@@ -1056,171 +1023,399 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
                 </div>
               )}
 
-              <form onSubmit={handleLoginSubmit} className="space-y-4" id="login-form-submit">
-                {/* Store ID / Code field - ONLY for Employee Tab */}
-                {loginTab === 'empleado' && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label htmlFor="login-store" className="text-xs font-semibold text-slate-700 block">
-                        ID Único de Tienda o Código de Comercio
-                      </label>
-                      <span className="text-[10px] font-mono text-orange-600 font-bold uppercase tracking-wider">
-                        ★ Requerido
-                      </span>
+              {/* PORTAL 1: COMPRADORES / CLIENTES */}
+              {mainPortalTab === 'comprador' && (
+                <div className="space-y-4 animate-fade-in text-left">
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-700 font-black text-xs">
+                      <Compass className="w-4 h-4" />
+                      <span>Portal de Clientes & Compradores</span>
                     </div>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-3.5 text-slate-400">
-                        <Building2 className="w-4 h-4" />
-                      </span>
-                      <input
-                        type="text"
-                        id="login-store"
-                        value={storeIdOrCode}
-                        onChange={(e) => setStoreIdOrCode(e.target.value)}
-                        className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-orange-500/10 focus:border-orange-500 transition-all font-semibold"
-                        placeholder="Ej: bigmax, MAX24-EXPRESS"
-                        required
-                      />
-                    </div>
-                    <p className="text-[10px] text-slate-550 leading-normal">
-                      Pídele el ID de Tienda a tu administrador para ingresar en el comercio correcto.
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Explora tiendas cercanas, consulta ofertas de kioscos y comercios en tiempo real o guarda tu historial de compras.
                     </p>
                   </div>
-                )}
 
-                {/* Email / Username field */}
-                <div className="space-y-1.5">
-                  <label htmlFor="login-username" className="text-xs font-semibold text-slate-700 block">
-                    {loginTab === 'empleado' ? 'Usuario de Empleado' : 'Usuario o Email'}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-3.5 text-slate-400">
-                      <Mail className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="text"
-                      id="login-username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-orange-500/10 focus:border-orange-500 transition-all font-semibold"
-                      placeholder={loginTab === 'empleado' ? 'Ej: ana.m' : 'prueba o ejemplo@gmail.com'}
-                      required
-                    />
+                  {/* Acceso Rápido con SSO Oficial */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-mono uppercase font-extrabold text-slate-400 tracking-wider">Acceso Instantáneo con Redes</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={!!socialLoading}
+                        onClick={() => handleSocialLogin('Google')}
+                        className="flex items-center justify-center gap-2 py-2.5 px-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-500 text-slate-800 text-xs font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {socialLoading === 'Google' ? (
+                          <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/>
+                            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.21v3.15C3.2 21.3 7.31 24 12 24z"/>
+                            <path fill="#FBBC05" d="M5.28 14.24c-.25-.72-.38-1.49-.38-2.24s.13-1.52.38-2.24V6.61H1.21C.44 8.14 0 9.99 0 12s.44 3.86 1.21 5.39l4.07-3.15z"/>
+                            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.2 2.7 1.21 6.61l4.07 3.15c.95-2.85 3.6-4.96 6.72-4.96z"/>
+                          </svg>
+                        )}
+                        <span>Continuar con Google</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={!!socialLoading}
+                        onClick={() => handleSocialLogin('Facebook')}
+                        className="flex items-center justify-center gap-2 py-2.5 px-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-500 text-slate-800 text-xs font-bold rounded-xl transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                      >
+                        {socialLoading === 'Facebook' ? (
+                          <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <svg className="w-4 h-4 shrink-0 fill-[#1877F2]" viewBox="0 0 24 24">
+                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                          </svg>
+                        )}
+                        <span>Continuar con Facebook</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Password field */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="login-pass" className="text-xs font-semibold text-slate-700 block">
-                      Contraseña
-                    </label>
+                  {/* Prominent Explore Map / Guest Access Button */}
+                  <div className="pt-1">
                     <button
                       type="button"
-                      onClick={() => setMode('forgot')}
-                      className="text-[11px] font-bold text-orange-600 hover:text-orange-700 transition-colors"
+                      disabled={!!socialLoading}
+                      onClick={() => handleSocialLogin('Invitado')}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
                     >
-                      ¿Olvidaste tu contraseña?
+                      <MapPin className="w-4 h-4 animate-bounce" />
+                      <span>🗺️ Explorar Mapa de Comercios (Sin Registro)</span>
                     </button>
                   </div>
-                  <div className="relative">
-                    <span className="absolute left-3.5 top-3.5 text-slate-400">
-                      <Lock className="w-4 h-4" />
-                    </span>
-                    <input
-                      type={showLoginPassword ? "text" : "password"}
-                      id="login-pass"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-orange-500/10 focus:border-orange-500 transition-all font-mono font-bold"
-                      placeholder="••••••••"
-                      required
-                    />
+
+                  <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-slate-200" />
+                    <span className="flex-shrink mx-3 text-[9px] font-mono font-bold uppercase tracking-widest text-slate-400">O INGRESA CON EMAIL</span>
+                    <div className="flex-grow border-t border-slate-200" />
+                  </div>
+
+                  {/* Formulario Comprador Registrado */}
+                  <form onSubmit={handleLoginSubmit} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Correo de Comprador</label>
+                      <input
+                        type="email"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold"
+                        placeholder="cliente@gmail.com"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Contraseña</label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
+                        placeholder="••••••••"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoggingIn}
+                      className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-black rounded-xl text-xs cursor-pointer shadow-sm transition-colors mt-2"
+                    >
+                      Ingresar como Comprador
+                    </button>
+                  </form>
+
+                  <div className="pt-3 text-center border-t border-slate-100">
+                    <span className="text-xs text-slate-500">¿Aún no tienes cuenta?</span>{' '}
                     <button
                       type="button"
-                      onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute right-3 top-3.5 text-slate-450 hover:text-slate-650 transition-colors cursor-pointer flex items-center justify-center p-0.5"
+                      onClick={() => setMode('buyer_register')}
+                      className="text-xs font-black text-emerald-600 hover:underline transition-colors cursor-pointer"
                     >
-                      {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      Regístrate Gratis como Comprador
                     </button>
                   </div>
                 </div>
+              )}
 
+              {/* PORTAL 2: COMERCIO & EMPLEADOS (POS) */}
+              {mainPortalTab === 'comercio' && (
+                <div className="space-y-4 animate-fade-in text-left">
+                  
+                  {/* Sub-selector Dueño vs Empleado */}
+                  <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginTab('comercio');
+                        setLoginError('');
+                      }}
+                      className={`flex-1 text-center py-2 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                        loginTab === 'comercio'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      🏢 Dueño / Comercio
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginTab('empleado');
+                        setLoginError('');
+                      }}
+                      className={`flex-1 text-center py-2 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                        loginTab === 'empleado'
+                          ? 'bg-white text-orange-600 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      👨‍💼 Cajero / Empleado (POS)
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-3.5" id="login-form-submit">
+                    {/* Campo ID de Tienda en la pestaña de Empleado */}
+                    {loginTab === 'empleado' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="login-store" className="text-xs font-bold text-slate-700 block">
+                            ID Único de Tienda o Código de Comercio
+                          </label>
+                          <span className="text-[10px] font-mono text-orange-600 font-bold uppercase">
+                            Requerido
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-3.5 text-slate-400">
+                            <Building2 className="w-4 h-4" />
+                          </span>
+                          <input
+                            type="text"
+                            id="login-store"
+                            value={storeIdOrCode}
+                            onChange={(e) => setStoreIdOrCode(e.target.value)}
+                            className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-orange-500/10 focus:border-orange-500 transition-all font-semibold"
+                            placeholder="Ej: bigmax, MAX24-EXPRESS"
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Usuario / Email */}
+                    <div className="space-y-1.5">
+                      <label htmlFor="login-username" className="text-xs font-bold text-slate-700 block">
+                        {loginTab === 'empleado' ? 'Usuario de Empleado (o PIN)' : 'Correo de Comercio o Usuario'}
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3.5 text-slate-400">
+                          <Mail className="w-4 h-4" />
+                        </span>
+                        <input
+                          type="text"
+                          id="login-username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-orange-500/10 focus:border-orange-500 transition-all font-semibold"
+                          placeholder={loginTab === 'empleado' ? 'Ej: ana.m' : 'ejemplo@gmail.com'}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Contraseña */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="login-pass" className="text-xs font-bold text-slate-700 block">
+                          Contraseña
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setMode('forgot')}
+                          className="text-[11px] font-bold text-orange-600 hover:text-orange-700 transition-colors"
+                        >
+                          ¿Olvidaste tu contraseña?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3.5 text-slate-400">
+                          <Lock className="w-4 h-4" />
+                        </span>
+                        <input
+                          type={showLoginPassword ? "text" : "password"}
+                          id="login-pass"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-orange-500/10 focus:border-orange-500 transition-all font-mono font-bold"
+                          placeholder="••••••••"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute right-3 top-3.5 text-slate-450 hover:text-slate-650 transition-colors cursor-pointer flex items-center justify-center p-0.5"
+                        >
+                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Fichaje de Turno Checkbox p/ Empleados */}
+                    {loginTab === 'empleado' && (
+                      <div className="flex items-center gap-2 p-2.5 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                        <input
+                          type="checkbox"
+                          id="clock-in-shift"
+                          checked={clockInShift}
+                          onChange={(e) => setClockInShift(e.target.checked)}
+                          className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+                        />
+                        <label htmlFor="clock-in-shift" className="text-xs font-extrabold text-slate-800 cursor-pointer flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+                          <span>⏱️ Iniciar turno de trabajo / Fichar entrada al ingresar</span>
+                        </label>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isLoggingIn}
+                      className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/10 hover:shadow-orange-500/15 transition-all cursor-pointer disabled:opacity-50 mt-2"
+                    >
+                      {isLoggingIn ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin shrink-0" />
+                          <span>Ingresando al sistema...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Ingresar</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+
+                  {/* Acceso Seguro Demo Sandbox (REPLACES Plaintext Credentials) */}
+                  <div className="pt-3 border-t border-slate-200 space-y-2">
+                    <p className="text-[10px] uppercase font-mono font-bold tracking-widest text-slate-400">Entorno de Demostración y Pruebas</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLogin('prueba', 'prueba')}
+                        className="p-2.5 border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 rounded-xl text-left transition-all cursor-pointer flex items-center justify-between group"
+                      >
+                        <div>
+                          <span className="block text-[11px] font-black text-slate-900">⚡ Demo Dueño</span>
+                          <span className="block text-[9px] text-slate-500 font-medium">Comercio Sandbox</span>
+                        </div>
+                        <Zap className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleQuickLogin('ana.m', 'password123')}
+                        className="p-2.5 border border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 rounded-xl text-left transition-all cursor-pointer flex items-center justify-between group"
+                      >
+                        <div>
+                          <span className="block text-[11px] font-black text-slate-900">⚡ Demo Cajero</span>
+                          <span className="block text-[9px] text-slate-500 font-medium">Terminal POS</span>
+                        </div>
+                        <Clock className="w-4 h-4 text-orange-500 group-hover:scale-110 transition-transform" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 text-center border-t border-slate-100">
+                    <span className="text-xs text-slate-500">¿No tienes cuenta de comercio?</span>{' '}
+                    <button
+                      type="button"
+                      onClick={() => setMode('register')}
+                      className="text-xs font-black text-orange-600 hover:underline transition-colors cursor-pointer"
+                    >
+                      Regístrate como Comercio
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* PORTAL 3: PROVEEDORES B2B */}
+              {mainPortalTab === 'proveedor' && (
+                <div className="space-y-4 animate-fade-in text-left">
+                  <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2 text-indigo-700 font-black text-xs">
+                      <Truck className="w-4 h-4" />
+                      <span>Portal Mayoristas & Proveedores B2B</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed">
+                      Publica tu catálogo mayorista, define tus zonas y radios de entrega por kilometraje o provincia, y recibe pedidos de tiendas directamente.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleLoginSubmit} className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Correo o Usuario B2B</label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold"
+                        placeholder="ventas@distribuidorasur.com"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Contraseña Mayorista</label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-mono"
+                        placeholder="••••••••"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoggingIn}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl text-xs cursor-pointer shadow-sm transition-colors mt-2"
+                    >
+                      Ingresar como Proveedor B2B
+                    </button>
+                  </form>
+
+                  <div className="pt-3 text-center border-t border-slate-100">
+                    <span className="text-xs text-slate-500">¿Eres proveedor o distribuidor?</span>{' '}
+                    <button
+                      type="button"
+                      onClick={() => setMode('supplier_register')}
+                      className="text-xs font-black text-indigo-600 hover:underline transition-colors cursor-pointer"
+                    >
+                      Regístrate como Proveedor B2B
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Master Console Trigger discrete Footer Link */}
+              <div className="pt-4 border-t border-slate-200/80 text-center">
                 <button
-                  type="submit"
-                  disabled={isLoggingIn}
-                  className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/10 hover:shadow-orange-500/15 transition-all mt-4 cursor-pointer disabled:opacity-50"
+                  type="button"
+                  onClick={() => {
+                    handleQuickLogin('pezziniarg@gmail.com', 'Max24@2626');
+                  }}
+                  className="text-[10px] font-mono font-bold text-slate-400 hover:text-slate-700 transition-colors flex items-center justify-center gap-1 mx-auto cursor-pointer"
                 >
-                  {isLoggingIn ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin shrink-0" />
-                      <span>Verificando credenciales...</span>
-                    </>
-                  ) : (
-                    <>
-                      Confirmar Credenciales
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
+                  <Shield className="w-3 h-3 text-slate-400" />
+                  <span>⚙️ Acceso Consola Master (Ruta Privada 2FA)</span>
                 </button>
-              </form>
-
-              {/* Quick Preset Demo Logins triggers */}
-              <div className="pt-4 border-t border-slate-200 space-y-2.5">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-450 font-mono">Credenciales de Acceso Rápido</p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('prueba', 'prueba')}
-                    className="p-2.5 border border-slate-200 hover:border-orange-500/40 bg-slate-50/50 rounded-xl text-left transition-all hover:bg-white shadow-xs cursor-pointer"
-                  >
-                    <span className="block text-[11px] font-bold text-slate-800">Dueño / Admin</span>
-                    <span className="block text-[9px] font-mono text-slate-500 truncate mt-0.5">prueba</span>
-                    <span className="block text-[9px] font-sans font-extrabold text-orange-600 mt-0.5">prueba</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickLogin('ana.m', 'password123')}
-                    className="p-2.5 border border-slate-200 hover:border-orange-500/40 bg-slate-50/50 rounded-xl text-left transition-all hover:bg-white shadow-xs cursor-pointer"
-                  >
-                    <span className="block text-[11px] font-bold text-slate-800">Cajero (Empleado)</span>
-                    <span className="block text-[9px] font-mono text-slate-500 truncate mt-0.5 font-sans">ID Tienda: prueba</span>
-                    <span className="block text-[9px] font-sans font-extrabold text-orange-600 mt-0.5">password123</span>
-                  </button>
-                </div>
               </div>
 
-              {/* Action path navigation links */}
-              <div className="pt-4 text-center space-y-2.5 border-t border-slate-200">
-                <div>
-                  <span className="text-xs text-slate-500">¿No tienes cuenta de comercio?</span>{' '}
-                  <button
-                    onClick={() => setMode('register')}
-                    className="text-xs font-black text-orange-600 hover:text-orange-500 hover:underline transition-colors cursor-pointer"
-                  >
-                    Regístrate como Comercio
-                  </button>
-                </div>
-                <div className="pt-1.5 border-t border-slate-100">
-                  <span className="text-xs text-slate-500">¿Quieres comprar o escanear productos?</span>{' '}
-                  <button
-                    onClick={() => setMode('buyer_register')}
-                    className="text-xs font-black text-emerald-600 hover:text-emerald-500 hover:underline transition-colors cursor-pointer"
-                  >
-                    Regístrate Gratis como Comprador
-                  </button>
-                </div>
-                <div className="pt-1.5 border-t border-slate-100">
-                  <span className="text-xs text-slate-500">¿Eres proveedor mayorista?</span>{' '}
-                  <button
-                    onClick={() => setMode('supplier_register')}
-                    className="text-xs font-black text-indigo-600 hover:text-indigo-500 hover:underline transition-colors cursor-pointer"
-                  >
-                    Regístrate como Proveedor
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 

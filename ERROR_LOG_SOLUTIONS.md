@@ -20,10 +20,22 @@
 | **ERR-08** | Inventario | Envío prematuro del formulario al escanear código | Solucionado |
 | **ERR-09** | Android Studio / AAPT | Fallo de compilación Gradle por archivo PNG corrupto | Solucionado |
 | **ERR-10** | Mercado Pago IPN | Fallo de validación de firma `x-signature` en Webhook | Solucionado |
+| **ERR-18** | Auth UI/UX & Security | Saturación de roles y credenciales en texto plano en Login | Solucionado |
 
 ---
 
 ## 🛠️ Detalle Técnico de Errores y Soluciones
+
+### 🔴 Error 18: Saturación de Roles y Exposición de Credenciales en Texto Plano en Login
+- **Fallo:** La pantalla de inicio de sesión mezclaba accesos para Compradores, Dueños, Empleados, Proveedores y SuperAdmin en una sola tarjeta saturada. Además, exhibía credenciales de prueba (`prueba / prueba`, `password123`) en texto plano visible en pantalla.
+- **Causa Raíz:** Falta de segmentación por intención de usuario e inclusión de un bloque estático de desarrollo sin protección.
+- **Solución Aplicada:**
+  1. Rediseño completo en 3 portales dedicados (`Compradores`, `Comercio & POS`, `Proveedores B2B`) mediante pestañas superiores claras.
+  2. Remoción total del bloque de texto plano. Reemplazado por botones de simulación segura de un solo clic (**⚡ Probar Demo Sandbox**) que autentican transparente sin expones contraseñas.
+  3. Sustitución de etiquetas de texto por botones SSO con marcas oficiales (logos vectoriales SVG de Google y Facebook).
+  4. Adición del botón **"🗺️ Explorar Mapa de Comercios (Sin Registro)"** con activación de geolocalización GPS.
+  5. Módulo de fichaje de turno de trabajo (`⏱️ Reloj Checador`) con checkbox para registro de horario de cajeros al ingresar al POS.
+  6. Reubicación del acceso SuperAdmin/Master a un disparador discreto en el pie de página con verificación 2FA para `pezziniarg@gmail.com`.
 
 ### 🔴 Error 01: Validación de Campo Vacío en Formulario TAD
 - **Fallo:** El campo "Tasa" en el sistema Trámites a Distancia (TAD) de Argentina arrojaba el error *"No se permite vacío o espacios en blanco"*.
