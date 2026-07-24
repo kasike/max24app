@@ -30,7 +30,8 @@ import {
   Plus,
   QrCode,
   CreditCard,
-  Handshake
+  Handshake,
+  RefreshCw
 } from 'lucide-react';
 import { Sale, Product, StoreSettings, CashierSession } from '../types';
 import { db } from '../firebase';
@@ -49,6 +50,7 @@ interface ReportsProps {
   cashierSessions?: CashierSession[];
   onAddSession?: (newSession: Omit<CashierSession, 'id'>) => Promise<CashierSession>;
   onUpdateSessionStatus?: (sessionId: string, nextStatus: 'autorizado' | 'cerrado', closeCash?: number, wageAccrued?: number, hoursWorked?: number) => Promise<void>;
+  onRefreshData?: () => Promise<void>;
 }
 
 export default function Reports({ 
@@ -63,10 +65,27 @@ export default function Reports({
   activeStoreEmail,
   cashierSessions = [],
   onAddSession,
-  onUpdateSessionStatus
+  onUpdateSessionStatus,
+  onRefreshData
 }: ReportsProps) {
   const sales = useMemo(() => rawSales.filter(s => !s.isPracticeMode), [rawSales]);
   const products = useMemo(() => rawProducts.filter(p => !p.isPracticeMode), [rawProducts]);
+
+  // Robust Local Date String Formatter (YYYY-MM-DD) avoiding UTC mismatch
+  const getLocalDateStr = (dateInput?: string | Date) => {
+    if (!dateInput) return '';
+    if (typeof dateInput === 'string') {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput.trim())) {
+        return dateInput.trim();
+      }
+    }
+    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(d.getTime())) return '';
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   // Date filtering state (default: TODAY YYYY-MM-DD)
   const getTodayStr = () => {
@@ -88,6 +107,28 @@ export default function Reports({
 
   const [filterPreset, setFilterPreset] = useState<'today' | 'yesterday' | 'week' | 'custom'>('today');
   const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
+
+  // Manual Refresh & Realtime Sync Indicator
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+  });
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+      const now = new Date();
+      setLastSyncTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`);
+    } catch (e) {
+      console.warn("Refresh error:", e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   const [salesSearch, setSalesSearch] = useState('');
   const [selectedHistoricalSale, setSelectedHistoricalSale] = useState<Sale | null>(null);
@@ -179,7 +220,7 @@ export default function Reports({
 
     return sales.filter(s => {
       if (!s.date) return false;
-      const saleDateStr = new Date(s.date).toISOString().split('T')[0];
+      const saleDateStr = getLocalDateStr(s.date);
 
       if (filterPreset === 'today') {
         return saleDateStr === today;
@@ -203,8 +244,8 @@ export default function Reports({
     const yesterday = getYesterdayStr();
 
     return cashierSessions.filter(sess => {
-      const openDateStr = sess.openTime ? new Date(sess.openTime).toISOString().split('T')[0] : '';
-      const closeDateStr = sess.closeTime ? new Date(sess.closeTime).toISOString().split('T')[0] : '';
+      const openDateStr = sess.openTime ? getLocalDateStr(sess.openTime) : '';
+      const closeDateStr = sess.closeTime ? getLocalDateStr(sess.closeTime) : '';
 
       if (filterPreset === 'today') {
         return openDateStr === today || closeDateStr === today;
@@ -440,17 +481,19 @@ export default function Reports({
     const datesMap: { [date: string]: number } = {};
     
     sales.forEach(sale => {
-      const dateStr = new Date(sale.date).toISOString().split('T')[0];
-      datesMap[dateStr] = (datesMap[dateStr] || 0) + sale.total;
+      const dateStr = getLocalDateStr(sale.date);
+      if (dateStr) {
+        datesMap[dateStr] = (datesMap[dateStr] || 0) + sale.total;
+      }
     });
 
     const sortedDates = Object.keys(datesMap).sort();
     
     if (sortedDates.length === 1) {
       const singleDate = sortedDates[0];
-      const prev = new Date(singleDate);
+      const prev = new Date(singleDate + 'T12:00:00');
       prev.setDate(prev.getDate() - 1);
-      const prevStr = prev.toISOString().split('T')[0];
+      const prevStr = getLocalDateStr(prev);
       return [
         { date: prevStr, amount: 0 },
         { date: singleDate, amount: datesMap[singleDate] }
@@ -575,28 +618,46 @@ export default function Reports({
         </div>
       )}
 
-      {/* Cabecera de reporte con opción de vaciado de reporte ejemplo para Propietarios */}
+      {/* Cabecera de reporte con opción de actualización manual y vaciado de reporte ejemplo */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
         <div className="space-y-1">
-          <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <BarChart3 className="text-orange-500 w-5 h-5" />
-            Reportes & Análisis de Ventas
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <BarChart3 className="text-orange-500 w-5 h-5" />
+              Reportes & Análisis de Ventas
+            </h2>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              En vivo ({lastSyncTime} hs)
+            </span>
+          </div>
           <p className="text-xs text-slate-500">
             Resumen diario en tiempo real, arqueos de caja, cierres de turno Z-Report y márgenes de ganancia.
           </p>
         </div>
 
-        {isOwner && onClearSales && (
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <button
             type="button"
-            onClick={handleStartClear}
-            className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-600 font-extrabold text-[11px] tracking-wide uppercase rounded-xl transition-all duration-200 cursor-pointer select-none active:scale-95 shrink-0"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] tracking-wide uppercase rounded-xl shadow-sm transition-all duration-200 cursor-pointer select-none active:scale-95 shrink-0"
           >
-            <Trash2 className="w-4 h-4 text-rose-600" />
-            <span>Eliminar Reporte de Ejemplo (Vaciar)</span>
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Sincronizando...' : 'Actualizar Reporte'}</span>
           </button>
-        )}
+
+          {isOwner && onClearSales && (
+            <button
+              type="button"
+              onClick={handleStartClear}
+              className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 hover:border-rose-300 text-rose-600 font-extrabold text-[11px] tracking-wide uppercase rounded-xl transition-all duration-200 cursor-pointer select-none active:scale-95 shrink-0"
+            >
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              <span>Eliminar Reporte de Ejemplo (Vaciar)</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* BACKUP RESTORE CARD BANNER */}

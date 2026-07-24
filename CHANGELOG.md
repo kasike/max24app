@@ -10,6 +10,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Corregido
+- **Sincronización en Tiempo Real de Ventas y Solución de Muestro $0 en Reportes (`App.tsx` & `Reports.tsx`)**:
+  1. **Suscripción Reactiva Firebase `onSnapshot`**: Se agregó un listener asíncrono en tiempo real sobre la subcolección `sales` de Firestore en `App.tsx`. Cualquier venta registrada desde otro celular o computadora (por el supervisor o cajeros con el POS o Calculadora Express) se transmite e impacta automáticamente en la pantalla del dueño sin necesidad de refrescar la página.
+  2. **Alineación de Zona Horaria Local (`getLocalDateStr`)**: Se reemplazó la conversión `.toISOString().split('T')[0]` (que usaba hora UTC) por un formateador de fecha local en `Reports.tsx`. Esto resolvió el problema por el cual las ventas hechas al atardecer/noche en Argentina (UTC-3) eran interpretadas con fecha del día siguiente en UTC, provocando que figuraran en `$0` al consultar el filtro "Hoy".
+  3. **Botón e Indicador de Sincronización Manual ("Actualizar Reporte")**: Se incorporó el botón **"Actualizar Reporte"** con animación de giro de icono y la etiqueta **"🟢 En vivo (HH:MM:SS hs)"** en la cabecera superior de `Reports.tsx`, permitiendo verificar la actualización de ventas y re-sincronizar todos los datos al instante.
+- **Optimización de Diseño Cuadro de Finalización de Venta / Pago PWA (`POS.tsx`)**:
+  1. Se rediseñó la ventana modal de checkout para encajar completamente en pantalla sin requerir desplazamiento vertical (scroll).
+  2. Se reestructuró la barra de métodos de pago en una cuadrícula compacta e intuitiva (Efectivo, T. Crédito, T. Débito, Transferencia, Cta. Cte.).
+  3. Se añadieron fichas de monto rápido (`$ Exacto`, `+$1.000`, `+$2.000`, `+$5.000`, `+$10.000`, `+$20.000`) en cobros en efectivo para autocompletar el pago en 1 toque.
+  4. Se integró el total a cobrar de forma destacada en la barra superior junto con un pie de acción fijo con el botón "Confirmar Venta" siempre visible y accesible al instante en dispositivos móviles PWA.
 - **Apertura Automática del Modal de Facturación/Cobro desde la Calculadora Express (`POS.tsx`)**:
   1. Se actualizó el parámetro por defecto `directCheckout` a `true` en la función `handleAddQuickItemToCart`.
   2. Al presionar "Agregar y Facturar / Cobrar" o presionar la tecla `Enter` en el campo de expresión de la calculadora, se agrega el importe al carrito y se abre automáticamente la pantalla modal de "Finalizar Transacción" para seleccionar la forma de pago (Efectivo, MercadoPago, Tarjetas, Transferencia, Cuenta Corriente) y realizar la venta en un solo paso.

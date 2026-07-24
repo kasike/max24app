@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
@@ -728,6 +728,28 @@ export default function App() {
     return () => unsubscribe();
   }, [currentUser, activeStoreEmail]);
 
+  // Real-time listener for sales
+  useEffect(() => {
+    if (!currentUser || !activeStoreEmail || activeStoreEmail === 'global' || currentUser.role === 'Comprador' || currentUser.role === 'Proveedor') {
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'storeSettings', activeStoreEmail, 'sales'),
+      (snapshot) => {
+        const fetchedSales: Sale[] = [];
+        snapshot.forEach((d) => fetchedSales.push(d.data() as Sale));
+        fetchedSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setSales(fetchedSales);
+      },
+      (error) => {
+        console.warn("Error in sales real-time listener:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentUser, activeStoreEmail]);
+
   const getStoreCollection = (collectionName: string) => {
     return collection(db, 'storeSettings', activeStoreEmail, collectionName);
   };
@@ -736,227 +758,223 @@ export default function App() {
     return doc(db, 'storeSettings', activeStoreEmail, collectionName, docId);
   };
 
-  // Load initial data from Firebase on mount or when currentUser changes
-  useEffect(() => {
-    async function loadDataFromFirebase() {
-      if (!currentUser) {
-        // Clean up previous store state to prevent stale data flashing on logout
-        setProducts([]);
-        setCustomers([]);
-        setCategories([]);
-        setSuppliers([]);
-        setSales([]);
-        setSupplierPurchases([]);
-        setCashierSessions([]);
-        
-        // Load global employees so they are available on the login screen
-        try {
-          const empSnap = await getDocs(collection(db, 'employees'));
-          if (!empSnap.empty) {
-            const fetched: Employee[] = [];
-            empSnap.forEach(d => fetched.push(d.data() as Employee));
-            // Merge with INITIAL_EMPLOYEES to make sure default accounts are always available
-            const merged = [...INITIAL_EMPLOYEES];
-            fetched.forEach(f => {
-              if (!merged.some(m => m.email.toLowerCase() === f.email.toLowerCase())) {
-                merged.push(f);
-              }
-            });
-            setEmployees(merged);
-          } else {
-            setEmployees(INITIAL_EMPLOYEES);
-          }
-        } catch (e) {
-          console.warn("Could not load global employees on mount, falling back to defaults:", e);
-          setEmployees(INITIAL_EMPLOYEES);
-        }
-        return;
-      }
-
-      setIsLoadingData(true);
-      const isDemo = activeStoreEmail === 'prueba@max24app.com' || activeStoreEmail === 'prueba' || activeStoreEmail === 'global' || activeStoreEmail === 'pezziniarg@gmail.com';
-
+  // Load initial data from Firebase
+  const loadDataFromFirebase = useCallback(async () => {
+    if (!currentUser) {
+      // Clean up previous store state to prevent stale data flashing on logout
+      setProducts([]);
+      setCustomers([]);
+      setCategories([]);
+      setSuppliers([]);
+      setSales([]);
+      setSupplierPurchases([]);
+      setCashierSessions([]);
+      
+      // Load global employees so they are available on the login screen
       try {
-        console.log("Cargando base de datos segura y aislada para el comercio:", activeStoreEmail);
-        
-        if (!auth.currentUser) {
-          try {
-            await signInAnonymously(auth);
-          } catch (authError) {
-            console.warn("AnonymAuth Error:", authError);
-          }
-        }
-
-        // 1. Products
-        const prodSnap = await getDocs(getStoreCollection('products'));
-        if (prodSnap.empty) {
-          if (isDemo) {
-            const fallbackProds = localStorage.getItem('store_products') 
-              ? JSON.parse(localStorage.getItem('store_products')!) 
-              : INITIAL_PRODUCTS;
-            for (const p of fallbackProds) {
-              await setDoc(getStoreDoc('products', p.id), { ...p, storeEmail: activeStoreEmail });
-            }
-            setProducts(fallbackProds);
-          } else {
-            // Real store: empty state initially as expected by merchant
-            setProducts([]);
-          }
-        } else {
-          const fetched: Product[] = [];
-          prodSnap.forEach(d => fetched.push(d.data() as Product));
-          setProducts(fetched);
-        }
-
-        // 2. Employees (Store internal staff)
-        const empSnap = await getDocs(getStoreCollection('employees'));
-        if (empSnap.empty) {
-          if (isDemo) {
-            const fallbackEmps = localStorage.getItem('store_employees')
-              ? JSON.parse(localStorage.getItem('store_employees')!)
-              : INITIAL_EMPLOYEES;
-            for (const e of fallbackEmps) {
-              await setDoc(getStoreDoc('employees', e.id), { ...e, storeEmail: activeStoreEmail });
-              await setDoc(doc(db, 'employees', e.id), { ...e, storeEmail: activeStoreEmail });
-            }
-            setEmployees(fallbackEmps);
-          } else {
-            const ownerEmp = {
-              ...currentUser,
-              storeEmail: activeStoreEmail
-            };
-            await setDoc(getStoreDoc('employees', ownerEmp.id), ownerEmp);
-            setEmployees([ownerEmp]);
-          }
-        } else {
+        const empSnap = await getDocs(collection(db, 'employees'));
+        if (!empSnap.empty) {
           const fetched: Employee[] = [];
           empSnap.forEach(d => fetched.push(d.data() as Employee));
-          setEmployees(fetched);
-        }
-
-        // 3. Customers
-        const custSnap = await getDocs(getStoreCollection('customers'));
-        if (custSnap.empty) {
-          if (isDemo) {
-            const fallbackCusts = localStorage.getItem('store_customers')
-              ? JSON.parse(localStorage.getItem('store_customers')!)
-              : INITIAL_CUSTOMERS;
-            for (const c of fallbackCusts) {
-              await setDoc(getStoreDoc('customers', c.id), { ...c, storeEmail: activeStoreEmail });
+          const merged = [...INITIAL_EMPLOYEES];
+          fetched.forEach(f => {
+            if (!merged.some(m => m.email.toLowerCase() === f.email.toLowerCase())) {
+              merged.push(f);
             }
-            setCustomers(fallbackCusts);
-          } else {
-            setCustomers([]);
-          }
+          });
+          setEmployees(merged);
         } else {
-          const fetched: Customer[] = [];
-          custSnap.forEach(d => fetched.push(d.data() as Customer));
-          setCustomers(fetched);
+          setEmployees(INITIAL_EMPLOYEES);
         }
-
-        // 4. Categories
-        const catSnap = await getDocs(getStoreCollection('categories'));
-        if (catSnap.empty) {
-          if (isDemo) {
-            const fallbackCats = localStorage.getItem('store_categories')
-              ? JSON.parse(localStorage.getItem('store_categories')!)
-              : INITIAL_CATEGORIES;
-            for (const c of fallbackCats) {
-              await setDoc(getStoreDoc('categories', c.id), { ...c, storeEmail: activeStoreEmail });
-            }
-            setCategories(fallbackCats);
-          } else {
-            const defaultCats = INITIAL_CATEGORIES;
-            for (const c of defaultCats) {
-              await setDoc(getStoreDoc('categories', c.id), { ...c, storeEmail: activeStoreEmail });
-            }
-            setCategories(defaultCats);
-          }
-        } else {
-          const fetched: Category[] = [];
-          catSnap.forEach(d => fetched.push(d.data() as Category));
-          setCategories(fetched);
-        }
-
-        // 5. Suppliers
-        const supSnap = await getDocs(getStoreCollection('suppliers'));
-        const fetchedSups: Supplier[] = [];
-        supSnap.forEach(d => fetchedSups.push(d.data() as Supplier));
-        setSuppliers(fetchedSups);
-
-        // 6. Sales
-        const salesSnap = await getDocs(getStoreCollection('sales'));
-        const fetchedSales: Sale[] = [];
-        salesSnap.forEach(d => fetchedSales.push(d.data() as Sale));
-        fetchedSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setSales(fetchedSales);
-
-        // 7. Supplier Purchases
-        const purchaseSnap = await getDocs(getStoreCollection('supplierPurchases'));
-        const fetchedPurchases: SupplierPurchase[] = [];
-        purchaseSnap.forEach(d => fetchedPurchases.push(d.data() as SupplierPurchase));
-        fetchedPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        setSupplierPurchases(fetchedPurchases);
-
-        // 8. Cashier Sessions loaded via real-time onSnapshot listener (initialized above)
-
-        // 9. Backups from secure subcollection
-        try {
-          const backupSnap = await getDoc(getStoreDoc('backups', 'sales_store_backup'));
-          if (backupSnap.exists()) {
-            const data = backupSnap.data();
-            if (data && data.sales && data.sales.length > 0) {
-              setBackupDate(data.backupDate || 'Reciente');
-              setBackupExists(true);
-              localStorage.setItem('store_sales_backup', JSON.stringify(data.sales));
-              localStorage.setItem('store_sales_backup_date', data.backupDate || 'Reciente');
-            }
-          }
-        } catch (e) {
-          console.warn("No cloud backup found for this store.");
-        }
-
-        setIsLoadingData(false);
-      } catch (err) {
-        console.warn("Fallback local sync triggered due to load error:", err);
-        // Fallback to local storage if Firestore load fails
-        const localProds = localStorage.getItem('store_products');
-        if (localProds) {
-          try { setProducts(JSON.parse(localProds)); } catch (e) {}
-        }
-        const localEmps = localStorage.getItem('store_employees');
-        if (localEmps) {
-          try { setEmployees(JSON.parse(localEmps)); } catch (e) {}
-        }
-        const localCusts = localStorage.getItem('store_customers');
-        if (localCusts) {
-          try { setCustomers(JSON.parse(localCusts)); } catch (e) {}
-        }
-        const localCats = localStorage.getItem('store_categories');
-        if (localCats) {
-          try { setCategories(JSON.parse(localCats)); } catch (e) {}
-        }
-        const localSups = localStorage.getItem('store_suppliers');
-        if (localSups) {
-          try { setSuppliers(JSON.parse(localSups)); } catch (e) {}
-        }
-        const localSales = localStorage.getItem('store_sales');
-        if (localSales) {
-          try { setSales(JSON.parse(localSales)); } catch (e) {}
-        }
-        const localPurchases = localStorage.getItem('store_supplier_purchases');
-        if (localPurchases) {
-          try { setSupplierPurchases(JSON.parse(localPurchases)); } catch (e) {}
-        }
-        const localSessions = localStorage.getItem('store_cashier_sessions');
-        if (localSessions) {
-          try { setCashierSessions(JSON.parse(localSessions)); } catch (e) {}
-        }
-        setIsLoadingData(false);
+      } catch (e) {
+        console.warn("Could not load global employees on mount, falling back to defaults:", e);
+        setEmployees(INITIAL_EMPLOYEES);
       }
+      return;
     }
+
+    setIsLoadingData(true);
+    const isDemo = activeStoreEmail === 'prueba@max24app.com' || activeStoreEmail === 'prueba' || activeStoreEmail === 'global' || activeStoreEmail === 'pezziniarg@gmail.com';
+
+    try {
+      console.log("Cargando base de datos segura y aislada para el comercio:", activeStoreEmail);
+      
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (authError) {
+          console.warn("AnonymAuth Error:", authError);
+        }
+      }
+
+      // 1. Products
+      const prodSnap = await getDocs(getStoreCollection('products'));
+      if (prodSnap.empty) {
+        if (isDemo) {
+          const fallbackProds = localStorage.getItem('store_products') 
+            ? JSON.parse(localStorage.getItem('store_products')!) 
+            : INITIAL_PRODUCTS;
+          for (const p of fallbackProds) {
+            await setDoc(getStoreDoc('products', p.id), { ...p, storeEmail: activeStoreEmail });
+          }
+          setProducts(fallbackProds);
+        } else {
+          setProducts([]);
+        }
+      } else {
+        const fetched: Product[] = [];
+        prodSnap.forEach(d => fetched.push(d.data() as Product));
+        setProducts(fetched);
+      }
+
+      // 2. Employees
+      const empSnap = await getDocs(getStoreCollection('employees'));
+      if (empSnap.empty) {
+        if (isDemo) {
+          const fallbackEmps = localStorage.getItem('store_employees')
+            ? JSON.parse(localStorage.getItem('store_employees')!)
+            : INITIAL_EMPLOYEES;
+          for (const e of fallbackEmps) {
+            await setDoc(getStoreDoc('employees', e.id), { ...e, storeEmail: activeStoreEmail });
+            await setDoc(doc(db, 'employees', e.id), { ...e, storeEmail: activeStoreEmail });
+          }
+          setEmployees(fallbackEmps);
+        } else {
+          const ownerEmp = {
+            ...currentUser,
+            storeEmail: activeStoreEmail
+          };
+          await setDoc(getStoreDoc('employees', ownerEmp.id), ownerEmp);
+          setEmployees([ownerEmp]);
+        }
+      } else {
+        const fetched: Employee[] = [];
+        empSnap.forEach(d => fetched.push(d.data() as Employee));
+        setEmployees(fetched);
+      }
+
+      // 3. Customers
+      const custSnap = await getDocs(getStoreCollection('customers'));
+      if (custSnap.empty) {
+        if (isDemo) {
+          const fallbackCusts = localStorage.getItem('store_customers')
+            ? JSON.parse(localStorage.getItem('store_customers')!)
+            : INITIAL_CUSTOMERS;
+          for (const c of fallbackCusts) {
+            await setDoc(getStoreDoc('customers', c.id), { ...c, storeEmail: activeStoreEmail });
+          }
+          setCustomers(fallbackCusts);
+        } else {
+          setCustomers([]);
+        }
+      } else {
+        const fetched: Customer[] = [];
+        custSnap.forEach(d => fetched.push(d.data() as Customer));
+        setCustomers(fetched);
+      }
+
+      // 4. Categories
+      const catSnap = await getDocs(getStoreCollection('categories'));
+      if (catSnap.empty) {
+        if (isDemo) {
+          const fallbackCats = localStorage.getItem('store_categories')
+            ? JSON.parse(localStorage.getItem('store_categories')!)
+            : INITIAL_CATEGORIES;
+          for (const c of fallbackCats) {
+            await setDoc(getStoreDoc('categories', c.id), { ...c, storeEmail: activeStoreEmail });
+          }
+          setCategories(fallbackCats);
+        } else {
+          const defaultCats = INITIAL_CATEGORIES;
+          for (const c of defaultCats) {
+            await setDoc(getStoreDoc('categories', c.id), { ...c, storeEmail: activeStoreEmail });
+          }
+          setCategories(defaultCats);
+        }
+      } else {
+        const fetched: Category[] = [];
+        catSnap.forEach(d => fetched.push(d.data() as Category));
+        setCategories(fetched);
+      }
+
+      // 5. Suppliers
+      const supSnap = await getDocs(getStoreCollection('suppliers'));
+      const fetchedSups: Supplier[] = [];
+      supSnap.forEach(d => fetchedSups.push(d.data() as Supplier));
+      setSuppliers(fetchedSups);
+
+      // 6. Sales
+      const salesSnap = await getDocs(getStoreCollection('sales'));
+      const fetchedSales: Sale[] = [];
+      salesSnap.forEach(d => fetchedSales.push(d.data() as Sale));
+      fetchedSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setSales(fetchedSales);
+
+      // 7. Supplier Purchases
+      const purchaseSnap = await getDocs(getStoreCollection('supplierPurchases'));
+      const fetchedPurchases: SupplierPurchase[] = [];
+      purchaseSnap.forEach(d => fetchedPurchases.push(d.data() as SupplierPurchase));
+      fetchedPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setSupplierPurchases(fetchedPurchases);
+
+      // 8. Backups
+      try {
+        const backupSnap = await getDoc(getStoreDoc('backups', 'sales_store_backup'));
+        if (backupSnap.exists()) {
+          const data = backupSnap.data();
+          if (data && data.sales && data.sales.length > 0) {
+            setBackupDate(data.backupDate || 'Reciente');
+            setBackupExists(true);
+            localStorage.setItem('store_sales_backup', JSON.stringify(data.sales));
+            localStorage.setItem('store_sales_backup_date', data.backupDate || 'Reciente');
+          }
+        }
+      } catch (e) {
+        console.warn("No cloud backup found for this store.");
+      }
+
+      setIsLoadingData(false);
+    } catch (err) {
+      console.warn("Fallback local sync triggered due to load error:", err);
+      const localProds = localStorage.getItem('store_products');
+      if (localProds) {
+        try { setProducts(JSON.parse(localProds)); } catch (e) {}
+      }
+      const localEmps = localStorage.getItem('store_employees');
+      if (localEmps) {
+        try { setEmployees(JSON.parse(localEmps)); } catch (e) {}
+      }
+      const localCusts = localStorage.getItem('store_customers');
+      if (localCusts) {
+        try { setCustomers(JSON.parse(localCusts)); } catch (e) {}
+      }
+      const localCats = localStorage.getItem('store_categories');
+      if (localCats) {
+        try { setCategories(JSON.parse(localCats)); } catch (e) {}
+      }
+      const localSups = localStorage.getItem('store_suppliers');
+      if (localSups) {
+        try { setSuppliers(JSON.parse(localSups)); } catch (e) {}
+      }
+      const localSales = localStorage.getItem('store_sales');
+      if (localSales) {
+        try { setSales(JSON.parse(localSales)); } catch (e) {}
+      }
+      const localPurchases = localStorage.getItem('store_supplier_purchases');
+      if (localPurchases) {
+        try { setSupplierPurchases(JSON.parse(localPurchases)); } catch (e) {}
+      }
+      const localSessions = localStorage.getItem('store_cashier_sessions');
+      if (localSessions) {
+        try { setCashierSessions(JSON.parse(localSessions)); } catch (e) {}
+      }
+      setIsLoadingData(false);
+    }
+  }, [currentUser, activeStoreEmail]);
+
+  useEffect(() => {
     loadDataFromFirebase();
-  }, [currentUser, activeStoreEmail, isPracticeMode]);
+  }, [loadDataFromFirebase, isPracticeMode]);
 
   // Save changes to localstorage when state updates
   useEffect(() => {
@@ -2160,6 +2178,7 @@ export default function App() {
             cashierSessions={cashierSessions}
             onAddSession={handleAddCashierSession}
             onUpdateSessionStatus={handleUpdateSessionStatus}
+            onRefreshData={loadDataFromFirebase}
           />
         );
       case 'online_sales':

@@ -28,7 +28,8 @@ import {
   Calculator,
   Zap,
   Delete,
-  Tag
+  Tag,
+  CheckCircle2
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Product, Employee, CartItem, Sale, StoreSettings, Customer } from '../types';
@@ -1166,715 +1167,449 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
       </div>
        {/* MODAL 1: CHECKOUT CON FIRMADO DE VENTA */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-2xl md:max-w-3xl w-full border border-slate-200 shadow-2xl p-5 relative max-h-[95vh] md:max-h-[90vh] flex flex-col">
-            <div className="pb-2 border-b border-slate-100 shrink-0">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <CreditCard className="text-emerald-500 w-5 h-5" />
-                Finalizar Transacción
-              </h3>
-              <p className="text-xs text-slate-500">Ingresa la información de pago y asocia el cliente de forma rápida.</p>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-2xl md:max-w-3xl w-full border border-slate-200 shadow-2xl p-3.5 sm:p-5 relative max-h-[96vh] sm:max-h-[92vh] flex flex-col">
+            {/* Header with Prominent Total Display */}
+            <div className="pb-2.5 border-b border-slate-100 shrink-0 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-1.5">
+                  <CreditCard className="text-emerald-500 w-4.5 h-4.5" />
+                  Finalizar Transacción
+                </h3>
+                <p className="text-[11px] text-slate-500 hidden sm:block">Selecciona el método de pago y confirma la venta al instante.</p>
+              </div>
+              <div className="bg-emerald-600 text-white px-3 py-1 sm:py-1.5 rounded-xl font-black font-mono text-base sm:text-lg shadow-sm shadow-emerald-600/20 flex items-center gap-1 shrink-0">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-100">TOTAL:</span>
+                <span>${total.toLocaleString('es-AR')}</span>
+              </div>
             </div>
 
-            <form onSubmit={handleConfirmCheckout} className="flex-1 overflow-y-auto py-3 pr-1 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-                
-                {/* COLUMNA 1: Forma de Pago y Montos */}
-                <div className="space-y-3.5">
-                  {/* Payment Method Selector */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Método de Pago
+            <form onSubmit={handleConfirmCheckout} className="flex-1 overflow-y-auto py-2.5 pr-1 space-y-3">
+              {/* Payment Method Selector (Compact 5-button bar) */}
+              <div>
+                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Método de Pago
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                  {(['Efectivo', 'Tarjeta de Crédito', 'Tarjeta de Débito', 'Transferencia', 'Cuenta Corriente'] as Sale['paymentMethod'][]).map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setPaymentMethod(method)}
+                      className={`
+                        py-1.5 px-1 text-[10px] sm:text-[11px] font-bold rounded-xl border flex items-center justify-center gap-1 transition-all cursor-pointer text-center
+                        ${paymentMethod === method 
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-xs font-black ring-2 ring-blue-500/20' 
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}
+                      `}
+                    >
+                      {method === 'Efectivo' && <span className="text-xs">💵</span>}
+                      {method.startsWith('Tarjeta') && <span className="text-xs">💳</span>}
+                      {method === 'Transferencia' && <span className="text-xs">📱</span>}
+                      {method === 'Cuenta Corriente' && <span className="text-xs">🤝</span>}
+                      <span className="truncate">{method === 'Tarjeta de Crédito' ? 'T. Crédito' : method === 'Tarjeta de Débito' ? 'T. Débito' : method === 'Cuenta Corriente' ? 'Cta. Cte.' : method}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cuenta Corriente Guidance Indicator */}
+              {paymentMethod === 'Cuenta Corriente' && (
+                <div className="bg-amber-50/80 border border-amber-300 p-2.5 rounded-xl space-y-0.5">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-900 text-xs">
+                    <span>🤝</span> Cuenta Corriente Activa
+                  </p>
+                  <p className="leading-snug text-amber-800 text-[10.5px] font-medium">
+                    El cobro se convertirá en <span className="font-bold">saldo deudor</span> para el cliente. Es obligatorio asociar un cliente registrado.
+                  </p>
+                </div>
+              )}
+
+              {/* Cash Collector (Only if "Efectivo") */}
+              {paymentMethod === 'Efectivo' && (
+                <div className="bg-blue-50/40 p-2.5 sm:p-3 rounded-xl border border-blue-200/60 space-y-2">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5">
+                    <label className="block text-xs font-bold text-slate-700 shrink-0">
+                      Monto de Efectivo Recibido ($)
                     </label>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-                      {(['Efectivo', 'Tarjeta de Crédito', 'Tarjeta de Débito', 'Transferencia', 'Cuenta Corriente'] as Sale['paymentMethod'][]).map((method) => (
+                    {/* Quick Exact & Bill Chips */}
+                    <div className="flex flex-wrap items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCashReceived(total.toString())}
+                        className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black cursor-pointer shadow-2xs transition-colors"
+                      >
+                        $ Exacto (${total.toLocaleString('es-AR')})
+                      </button>
+                      {[1000, 2000, 5000, 10000, 20000].map(bill => (
                         <button
-                          key={method}
+                          key={bill}
                           type="button"
-                          onClick={() => setPaymentMethod(method)}
-                          className={`
-                            py-2 px-1 text-[11px] font-semibold rounded-xl border flex items-center justify-center gap-1 transition-all cursor-pointer
-                            ${paymentMethod === method 
-                              ? 'bg-blue-50/70 border-blue-500 text-blue-950 shadow-xxs font-black ring-1 ring-blue-500/20' 
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}
-                          `}
+                          onClick={() => setCashReceived(bill.toString())}
+                          className="px-1.5 py-0.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold cursor-pointer font-mono shadow-2xs"
                         >
-                          {method === 'Efectivo' && <span className="text-sm">💵</span>}
-                          {method.startsWith('Tarjeta') && <span className="text-sm">💳</span>}
-                          {method === 'Transferencia' && <span className="text-sm">📱</span>}
-                          {method === 'Cuenta Corriente' && <span className="text-sm">🤝</span>}
-                          <span className="truncate">{method}</span>
+                          ${bill >= 1000 ? `${bill/1000}k` : bill}
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Cuenta Corriente Guidance Indicator */}
-                  {paymentMethod === 'Cuenta Corriente' && (
-                    <div className="bg-amber-50/70 border border-amber-300 p-3 rounded-xl space-y-1">
-                      <p className="font-bold flex items-center gap-1.5 text-amber-900 text-xs">
-                        <span>🤝</span> Cuenta Corriente Activa
-                      </p>
-                      <p className="leading-relaxed text-amber-800 text-[11px] font-medium">
-                        El cobro se convertirá en <span className="font-bold">saldo deudor</span> para el cliente. Es obligatorio seleccionar o registrar un cliente en la sección contigua.
-                      </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
+                      <input
+                        type="number"
+                        placeholder="0.00"
+                        value={cashReceived}
+                        onChange={(e) => setCashReceived(e.target.value)}
+                        className="w-full pl-7 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-black text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                        required={paymentMethod === 'Efectivo'}
+                      />
                     </div>
-                  )}
 
-                  {/* Cash Collector (Only if "Efectivo") */}
-                  {paymentMethod === 'Efectivo' && (
-                    <div className="bg-blue-50/30 p-3 rounded-xl border border-blue-200/60 space-y-2">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Monto de Efectivo Recibido ($)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">$</span>
-                          <input
-                            type="number"
-                            placeholder="0.00"
-                            value={cashReceived}
-                            onChange={(e) => setCashReceived(e.target.value)}
-                            className="w-full pl-7 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
-                            required={paymentMethod === 'Efectivo'}
-                          />
-                        </div>
-                      </div>
-
-                      {(() => {
-                        const cash = parseFloat(cashReceived) || 0;
-                        if (cashReceived === '') {
-                          return (
-                            <div className="flex items-center justify-between text-xs bg-slate-50 p-2 text-slate-500 font-sans rounded-lg">
-                              <span>A la espera de efectivo...</span>
-                            </div>
-                          );
-                        }
-                        if (cash < total) {
-                          const amountMissing = total - cash;
-                          return (
-                            <div className="flex flex-col gap-1 text-xs bg-rose-50 p-2 rounded-lg border border-rose-200 text-rose-700 font-medium font-sans animate-fade-in">
-                              <div className="flex items-center justify-between">
-                                <span>⚠️ Efectivo insuficiente:</span>
-                                <span className="font-bold font-mono">Falta ${amountMissing.toLocaleString('es-AR')}</span>
-                              </div>
-                            </div>
-                          );
-                        } else {
-                          const change = cash - total;
-                          return (
-                            <div className="flex items-center justify-between py-3 px-4.5 bg-emerald-500/[0.08] rounded-2xl border-2 border-emerald-500 text-emerald-950 font-sans animate-fade-in shadow-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="flex items-center justify-center w-5 h-5 bg-emerald-500 text-white rounded-full text-[10px] font-black">✓</span>
-                                <span className="font-extrabold text-[11px] uppercase tracking-wider">Vuelto a entregar:</span>
-                              </div>
-                              <span className="text-xl font-black text-emerald-600 font-mono tracking-xs">
-                                ${change.toLocaleString('es-AR')}
-                              </span>
-                            </div>
-                          );
-                        }
-                      })()}
-                    </div>
-                  )}
-
-                  {/* LOCAL INTEGRATED PAYMENT TERMINAL & QR SIMULATOR */}
-                  {(paymentMethod === 'Tarjeta de Crédito' || paymentMethod === 'Tarjeta de Débito') && (
-                    <div className="bg-slate-900 text-slate-100 p-4 rounded-xl border border-slate-800 space-y-3 animate-fade-in shadow-lg">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                          📶 Smart POS Link (Mercado Pago / Clover / Lapos)
-                        </span>
-                        <span className="text-[9px] bg-slate-800 px-2 py-0.5 rounded-sm font-mono text-slate-300">
-                          ID: {terminalTxId}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3.5 py-1">
-                        <div className="w-12 h-16 bg-slate-800 border border-slate-700 rounded-lg flex flex-col items-center justify-between p-1 shrink-0 relative overflow-hidden shadow-inner">
-                          {/* Screen */}
-                          <div className={`w-full h-7 rounded-xs flex items-center justify-center text-[8px] font-mono p-0.5 text-center leading-none
-                            ${terminalState === 'approved' ? 'bg-emerald-500 text-slate-950 font-bold' : 
-                              terminalState === 'processing' ? 'bg-blue-500 text-white animate-pulse' : 'bg-slate-950 text-slate-300'}`}>
-                            {terminalState === 'waiting' && 'APROX.'}
-                            {terminalState === 'processing' && 'PROC...'}
-                            {terminalState === 'approved' && 'APROB.'}
+                    {(() => {
+                      const cash = parseFloat(cashReceived) || 0;
+                      if (cashReceived === '') {
+                        return (
+                          <div className="text-[11px] bg-slate-100/80 px-2.5 py-1.5 text-slate-500 font-medium rounded-lg text-center">
+                            A la espera de efectivo...
                           </div>
-                          {/* Card slot indicator */}
-                          <div className="w-8 h-1 bg-slate-950 rounded-sm"></div>
-                          <CreditCard className={`w-4 h-4 ${terminalState === 'approved' ? 'text-emerald-400' : 'text-slate-400'}`} />
-                        </div>
+                        );
+                      }
+                      if (cash < total) {
+                        const amountMissing = total - cash;
+                        return (
+                          <div className="text-[11px] bg-rose-50 px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-700 font-bold flex items-center justify-between">
+                            <span>⚠️ Falta:</span>
+                            <span className="font-mono text-xs">${amountMissing.toLocaleString('es-AR')}</span>
+                          </div>
+                        );
+                      } else {
+                        const change = cash - total;
+                        return (
+                          <div className="flex items-center justify-between py-1.5 px-3 bg-emerald-500/[0.1] rounded-xl border border-emerald-500 text-emerald-950 font-sans shadow-2xs">
+                            <span className="font-black text-[10px] uppercase tracking-wider text-emerald-800">Vuelto:</span>
+                            <span className="text-base font-black text-emerald-600 font-mono">
+                              ${change.toLocaleString('es-AR')}
+                            </span>
+                          </div>
+                        );
+                      }
+                    })()}
+                  </div>
+                </div>
+              )}
 
-                        <div className="flex-1 space-y-1">
-                          <p className="text-[10px] text-slate-400 font-sans">Monto sincronizado con la terminal:</p>
-                          <p className="text-base font-black text-white font-mono leading-none">
-                            ${total.toLocaleString('es-AR')}
-                          </p>
-                          <p className="text-[11px] font-medium leading-normal">
-                            {terminalState === 'waiting' && (
-                              <span className="text-amber-400 animate-pulse flex items-center gap-1">
-                                ⏳ Esperando aproximación o inserción de tarjeta...
-                              </span>
-                            )}
-                            {terminalState === 'processing' && (
-                              <span className="text-blue-400 flex items-center gap-1.5">
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Procesando pago con el banco...
-                              </span>
-                            )}
-                            {terminalState === 'approved' && (
-                              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                                ✔️ ¡Transacción Aprobada! Arqueo automático registrado.
-                              </span>
-                            )}
-                          </p>
-                        </div>
+              {/* LOCAL INTEGRATED PAYMENT TERMINAL & QR SIMULATOR */}
+              {(paymentMethod === 'Tarjeta de Crédito' || paymentMethod === 'Tarjeta de Débito') && (
+                <div className="bg-slate-900 text-slate-100 p-3 rounded-xl border border-slate-800 space-y-2 animate-fade-in shadow-md">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                      📶 Smart POS Link (Mercado Pago / Clover / Lapos)
+                    </span>
+                    <span className="text-[9px] bg-slate-800 px-1.5 py-0.5 rounded font-mono text-slate-300">
+                      ID: {terminalTxId}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 py-0.5">
+                    <div className="w-10 h-12 bg-slate-800 border border-slate-700 rounded-lg flex flex-col items-center justify-between p-1 shrink-0 relative overflow-hidden shadow-inner">
+                      <div className={`w-full h-5 rounded-xs flex items-center justify-center text-[7px] font-mono p-0.5 text-center leading-none
+                        ${terminalState === 'approved' ? 'bg-emerald-500 text-slate-950 font-bold' : 
+                          terminalState === 'processing' ? 'bg-blue-500 text-white animate-pulse' : 'bg-slate-950 text-slate-300'}`}>
+                        {terminalState === 'waiting' && 'APROX.'}
+                        {terminalState === 'processing' && 'PROC...'}
+                        {terminalState === 'approved' && 'APROB.'}
                       </div>
+                      <CreditCard className={`w-3.5 h-3.5 ${terminalState === 'approved' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                    </div>
 
-                      {terminalState === 'waiting' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTerminalState('processing');
+                    <div className="flex-1 space-y-0.5">
+                      <p className="text-[10px] text-slate-400 font-sans">Monto sincronizado: <strong className="text-white font-mono">${total.toLocaleString('es-AR')}</strong></p>
+                      <p className="text-[10.5px] font-medium">
+                        {terminalState === 'waiting' && <span className="text-amber-400 animate-pulse">⏳ Esperando aproximación o inserción de tarjeta...</span>}
+                        {terminalState === 'processing' && <span className="text-blue-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Procesando pago con banco...</span>}
+                        {terminalState === 'approved' && <span className="text-emerald-400 font-bold">✔️ ¡Transacción Aprobada!</span>}
+                      </p>
+                    </div>
+                  </div>
+
+                  {terminalState === 'waiting' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTerminalState('processing');
+                        setTimeout(() => {
+                          setTerminalState('approved');
+                          if (autoConfirmOnPay) {
                             setTimeout(() => {
-                              setTerminalState('approved');
-                              // Auto confirm payment if enabled
-                              if (autoConfirmOnPay) {
-                                setTimeout(() => {
-                                  handleConfirmCheckout({ preventDefault: () => {} } as React.FormEvent);
-                                }, 1200);
-                              }
-                            }, 1500);
-                          }}
-                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          Simular Aproximar / Deslizar Tarjeta (Cliente)
-                        </button>
-                      )}
-
-                      {terminalState === 'approved' && (
-                        <div className="bg-emerald-500/10 border border-emerald-500/30 p-2 rounded-lg text-center">
-                          <p className="text-[10px] text-emerald-400 font-bold">
-                            {autoConfirmOnPay 
-                              ? "⏳ Procesando el cierre de ticket de forma automatizada en 1s..." 
-                              : "Terminal autorizada. Presione el botón guardar para registrar la venta."}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between pt-1 text-[10px] text-slate-500 border-t border-slate-800">
-                        <span className="flex items-center gap-1">
-                          <span>⚙️</span> Modo Integrado Directo (API)
-                        </span>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-slate-400 hover:text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={autoConfirmOnPay}
-                            onChange={(e) => setAutoConfirmOnPay(e.target.checked)}
-                            className="rounded bg-slate-800 border-slate-700 text-blue-500 focus:ring-0 focus:ring-offset-0 w-3 h-3"
-                          />
-                          Auto-confirmar venta al pagar
-                        </label>
-                      </div>
-                    </div>
+                              handleConfirmCheckout({ preventDefault: () => {} } as React.FormEvent);
+                            }, 1000);
+                          }
+                        }, 1200);
+                      }}
+                      className="w-full py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                      Simular Aproximar / Deslizar Tarjeta
+                    </button>
                   )}
+                </div>
+              )}
 
-                  {paymentMethod === 'Transferencia' && (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3.5 animate-fade-in shadow-xs">
-                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-                          📱 Mercado Pago QR Dinámico de Cobro
-                        </span>
-                        <span className="text-[9px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-sm font-mono font-bold">
-                          Interoperable
-                        </span>
-                      </div>
+              {paymentMethod === 'Transferencia' && (
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 animate-fade-in shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 font-sans">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                      📱 QR Dinámico Mercado Pago (${total.toLocaleString('es-AR')})
+                    </span>
+                    <span className="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono font-bold">Interoperable</span>
+                  </div>
 
-                      <div className="flex flex-col sm:flex-row items-center gap-4 py-1">
-                        {/* QR Code Container */}
-                        <div className="w-28 h-28 bg-white border border-slate-200 rounded-xl p-2 shrink-0 flex flex-col items-center justify-center relative overflow-hidden shadow-inner group">
-                          {qrState === 'generating' ? (
-                            <div className="absolute inset-0 bg-white flex flex-col items-center justify-center gap-1.5">
-                              <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
-                              <span className="text-[8px] text-slate-400 font-mono">GENERANDO...</span>
-                            </div>
-                          ) : qrState === 'approved' ? (
-                            <div className="absolute inset-0 bg-emerald-500 flex flex-col items-center justify-center gap-1 text-white">
-                              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-emerald-600 font-black text-sm shadow-sm animate-bounce">
-                                ✓
-                              </div>
-                              <span className="text-[9px] font-extrabold tracking-wider">PAGADO</span>
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex flex-col items-center justify-center relative">
-                              {/* Stylized QR SVG */}
-                              <svg className="w-full h-full text-slate-900" viewBox="0 0 100 100">
-                                {/* Corners */}
-                                <rect x="5" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="8" />
-                                <rect x="12.5" y="12.5" width="10" height="10" fill="currentColor" />
-                                <rect x="70" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="8" />
-                                <rect x="77.5" y="12.5" width="10" height="10" fill="currentColor" />
-                                <rect x="5" y="70" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="8" />
-                                <rect x="12.5" y="77.5" width="10" height="10" fill="currentColor" />
-                                {/* Center MP Brand dot */}
-                                <rect x="42" y="42" width="16" height="16" rx="3" fill="#009ee3" />
-                                <text x="50" y="53" fill="white" fontSize="10" fontWeight="black" textAnchor="middle" fontFamily="sans-serif">MP</text>
-                                {/* Random QR Blocks */}
-                                <rect x="38" y="10" width="6" height="6" fill="currentColor" />
-                                <rect x="48" y="15" width="12" height="6" fill="currentColor" />
-                                <rect x="10" y="38" width="6" height="12" fill="currentColor" />
-                                <rect x="22" y="45" width="12" height="6" fill="currentColor" />
-                                <rect x="75" y="38" width="12" height="6" fill="currentColor" />
-                                <rect x="85" y="48" width="6" height="12" fill="currentColor" />
-                                <rect x="38" y="75" width="12" height="6" fill="currentColor" />
-                                <rect x="44" y="85" width="6" height="10" fill="currentColor" />
-                                <rect x="70" y="70" width="6" height="6" fill="currentColor" />
-                                <rect x="82" y="78" width="10" height="6" fill="currentColor" />
-                                <rect x="62" y="62" width="6" height="6" fill="currentColor" />
-                              </svg>
-                            </div>
-                          )}
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 h-20 bg-white border border-slate-200 rounded-lg p-1 shrink-0 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
+                      {qrState === 'approved' ? (
+                        <div className="absolute inset-0 bg-emerald-500 flex flex-col items-center justify-center text-white">
+                          <span className="text-lg font-black">✓</span>
+                          <span className="text-[8px] font-extrabold">PAGADO</span>
                         </div>
+                      ) : (
+                        <svg className="w-full h-full text-slate-900" viewBox="0 0 100 100">
+                          <rect x="5" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="8" />
+                          <rect x="12.5" y="12.5" width="10" height="10" fill="currentColor" />
+                          <rect x="70" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="8" />
+                          <rect x="77.5" y="12.5" width="10" height="10" fill="currentColor" />
+                          <rect x="5" y="70" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="8" />
+                          <rect x="12.5" y="77.5" width="10" height="10" fill="currentColor" />
+                          <rect x="42" y="42" width="16" height="16" rx="3" fill="#009ee3" />
+                          <text x="50" y="53" fill="white" fontSize="10" fontWeight="black" textAnchor="middle" fontFamily="sans-serif">MP</text>
+                        </svg>
+                      )}
+                    </div>
 
-                        <div className="flex-1 space-y-1 w-full text-center sm:text-left">
-                          <p className="text-[10px] text-slate-500 font-sans">Monto del QR Dinámico:</p>
-                          <p className="text-xl font-black text-slate-900 font-mono leading-none">
-                            ${total.toLocaleString('es-AR')}
-                          </p>
-                          <div className="text-[11px] leading-relaxed">
-                            {qrState === 'generating' && (
-                              <span className="text-slate-400 flex items-center justify-center sm:justify-start gap-1">
-                                <RefreshCw className="w-3 h-3 animate-spin" /> Conectando con Mercado Pago...
-                              </span>
-                            )}
-                            {qrState === 'waiting' && (
-                              <div className="space-y-0.5">
-                                <p className="text-amber-600 font-bold animate-pulse flex items-center justify-center sm:justify-start gap-1">
-                                  ⏱️ Esperando confirmación de cobro (Webhook)...
-                                </p>
-                                <p className="text-[9.5px] text-slate-400 font-mono">
-                                  ID Transacción: {qrTxId || 'Generando...'}
-                                </p>
-                              </div>
-                            )}
-                            {qrState === 'approved' && (
-                              <span className="text-emerald-600 font-bold flex items-center justify-center sm:justify-start gap-1">
-                                ✔️ ¡Pago acreditado de inmediato en la cuenta!
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
+                    <div className="flex-1 space-y-1 text-xs">
+                      {qrState === 'waiting' && (
+                        <p className="text-amber-600 font-bold animate-pulse text-[11px]">
+                          ⏱️ Esperando confirmación de cobro MP...
+                        </p>
+                      )}
+                      {qrState === 'approved' && (
+                        <p className="text-emerald-600 font-bold text-[11px]">
+                          ✔️ ¡Pago acreditado de inmediato!
+                        </p>
+                      )}
                       {qrState === 'waiting' && (
                         <button
                           type="button"
                           onClick={() => {
-                            setQrState('generating');
-                            setTimeout(() => {
-                              setQrState('approved');
-                              if (autoConfirmOnPay) {
-                                setTimeout(() => {
-                                  handleConfirmCheckout({ preventDefault: () => {} } as React.FormEvent);
-                                }, 1200);
-                              }
-                            }, 1200);
+                            setQrState('approved');
+                            if (autoConfirmOnPay) {
+                              setTimeout(() => {
+                                handleConfirmCheckout({ preventDefault: () => {} } as React.FormEvent);
+                              }, 1000);
+                            }
                           }}
-                          className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                          className="py-1 px-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold cursor-pointer"
                         >
-                          <Smartphone className="w-3.5 h-3.5" />
-                          Simular Pago de Cliente con Celular (MP/Bancos)
+                          Simular Pago Cliente (MP)
                         </button>
                       )}
-
-                      {qrState === 'approved' && (
-                        <div className="bg-emerald-550/[0.08] border border-emerald-500/20 p-2 rounded-lg text-center">
-                          <p className="text-[10px] text-emerald-700 font-bold">
-                            {autoConfirmOnPay 
-                              ? "⏳ Procesando el registro de la venta de forma automatizada en 1s..." 
-                              : "Cobro acreditado de forma segura en Mercado Pago."}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between pt-1 text-[10px] text-slate-450 border-t border-slate-200/60">
-                        <span className="flex items-center gap-1 text-slate-500">
-                          <span>⚙️</span> Webhook de Pago Instantáneo
-                        </span>
-                        <label className="flex items-center gap-1.5 cursor-pointer text-slate-600 hover:text-slate-800">
-                          <input
-                            type="checkbox"
-                            checked={autoConfirmOnPay}
-                            onChange={(e) => setAutoConfirmOnPay(e.target.checked)}
-                            className="rounded bg-white border-slate-300 text-blue-600 focus:ring-0 focus:ring-offset-0 w-3 h-3"
-                          />
-                          Auto-confirmar al recibir pago
-                        </label>
-                      </div>
                     </div>
-                  )}
-
-                  {/* AFIP Fiscal Invoicing Selection */}
-                  <div className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-200/50 space-y-3 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-700 uppercase tracking-widest flex items-center gap-1.5 font-sans">
-                        <span>🧾</span> Tipo de Comprobante
-                      </span>
-                      <div className="flex bg-slate-200/60 p-0.5 rounded-lg">
-                        <button
-                          type="button"
-                          onClick={() => setBillingType('ticket')}
-                          className={`
-                            px-2 py-1 text-[9px] font-extrabold rounded-md transition-all cursor-pointer
-                            ${billingType === 'ticket' 
-                              ? 'bg-white text-slate-800 shadow-xs' 
-                              : 'text-slate-500 hover:text-slate-700'
-                            }
-                          `}
-                        >
-                          Ticket No Fiscal
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBillingType('factura')}
-                          className={`
-                            px-2 py-1 text-[9px] font-extrabold rounded-md transition-all cursor-pointer flex items-center gap-1
-                            ${billingType === 'factura' 
-                              ? 'bg-blue-600 text-white shadow-xs' 
-                              : 'text-slate-500 hover:text-slate-700'
-                            }
-                          `}
-                        >
-                          Factura Fiscal (AFIP)
-                        </button>
-                      </div>
-                    </div>
-
-                    {billingType === 'factura' && !storeSettings.billingConfig?.enabled && (
-                      <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-800 leading-normal font-sans">
-                        <strong>⚠️ Modo de Simulación Activo</strong>
-                        <p className="mt-0.5">La tienda no tiene certificados reales cargados en Ajustes. La factura fiscal se simulará con fines de prueba.</p>
-                      </div>
-                    )}
-
-                    {billingType === 'factura' && (
-                      <div className="space-y-2 pt-1.5 border-t border-slate-250/50">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                              Tipo Documento
-                            </label>
-                            <select
-                              value={docTipo}
-                              onChange={(e) => {
-                                const val = Number(e.target.value);
-                                setDocTipo(val);
-                                if (val === 99) {
-                                  setDocNro('');
-                                }
-                              }}
-                              className="w-full bg-white border border-slate-250 rounded-lg px-2 py-1 text-xs text-slate-750 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            >
-                              <option value={99}>Consumidor Final</option>
-                              <option value={96}>DNI (Persona)</option>
-                              <option value={80}>CUIT (Comercio/Empresa)</option>
-                            </select>
-                          </div>
-
-                          {docTipo !== 99 && (
-                            <div>
-                              <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                                Número Documento
-                              </label>
-                              <input
-                                type="text"
-                                placeholder={docTipo === 80 ? 'CUIT de 11 dígitos' : 'DNI de 8 dígitos'}
-                                value={docNro}
-                                onChange={(e) => setDocNro(e.target.value.replace(/\D/g, ''))}
-                                className="w-full bg-white border border-slate-250 rounded-lg px-2 py-1 text-xs text-slate-750 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {docTipo !== 99 && (
-                          <div>
-                            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                              Nombre / Razón Social (Opcional)
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Ej: Juan Pérez o Empresa S.A."
-                              value={docNombre}
-                              onChange={(e) => setDocNombre(e.target.value)}
-                              className="w-full bg-white border border-slate-250 rounded-lg px-2 py-1 text-xs text-slate-750 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
+              )}
 
-                {/* COLUMNA 2: Cliente y Vendedor */}
-                <div className="space-y-3.5">
-                  {/* Asociar Cliente a la Venta */}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2.5">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
-                      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-widest flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-blue-500" />
-                        <span>Asociar Cliente</span>
-                      </label>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setCustomerMode('select')}
-                          className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer ${
-                            customerMode === 'select' 
-                              ? 'bg-blue-600 text-white shadow-xs' 
-                              : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                          }`}
-                        >
-                          Búsqueda
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCustomerMode('new')}
-                          className={`px-2 py-0.5 text-[9px] font-bold rounded transition-all cursor-pointer ${
-                            customerMode === 'new' 
-                              ? 'bg-blue-600 text-white shadow-xs' 
-                              : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-                          }`}
-                        >
-                          Nuevo Cliente
-                        </button>
-                      </div>
+              {/* Grid 2 Columns for Comprobante, Cliente & Cajero */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                
+                {/* Tipo de Comprobante AFIP / Ticket */}
+                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1 font-sans">
+                      <span>🧾</span> Comprobante
+                    </span>
+                    <div className="flex bg-slate-200/70 p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setBillingType('ticket')}
+                        className={`px-2 py-0.5 text-[9px] font-extrabold rounded cursor-pointer ${billingType === 'ticket' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}
+                      >
+                        Ticket
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBillingType('factura')}
+                        className={`px-2 py-0.5 text-[9px] font-extrabold rounded cursor-pointer ${billingType === 'factura' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-500'}`}
+                      >
+                        Factura AFIP
+                      </button>
                     </div>
+                  </div>
 
-                    {customerMode === 'select' ? (
-                      <div className="space-y-2 text-left">
-                        {/* Quick email search input */}
+                  {billingType === 'factura' && (
+                    <div className="space-y-1.5 pt-1 border-t border-slate-200">
+                      <div className="grid grid-cols-2 gap-1.5">
                         <div>
-                          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                            Búsqueda Directa por Correo
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              placeholder="Escribe el email del cliente..."
-                              value={customerEmailSearch}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setCustomerEmailSearch(val);
-                                // Auto-match: exact email match in customers
-                                const found = customers.find(c => c.email.toLowerCase().trim() === val.toLowerCase().trim());
-                                if (found) {
-                                  setSelectedCustomerId(found.id);
-                                } else {
-                                  if (val === '') {
-                                    setSelectedCustomerId('');
-                                  }
-                                }
-                              }}
-                              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-blue-200 focus:border-blue-500 placeholder-slate-400 text-slate-800"
-                            />
-                            <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                          </div>
-                        </div>
-
-                        {/* If matched automatically, we can show a nice success badge */}
-                        {(() => {
-                           const matchedCust = customers.find(c => c.id === selectedCustomerId);
-                           if (matchedCust) {
-                             return (
-                               <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 text-[10px] px-2.5 py-1.5 rounded-lg flex items-center justify-between font-sans animate-fade-in shadow-xxs">
-                                 <span className="font-semibold">Asociado: {matchedCust.name}</span>
-                                 <span className="text-[9px] text-emerald-600 bg-emerald-100/50 px-1.5 py-0.5 rounded font-bold font-sans">Cliente Encontrado</span>
-                               </div>
-                             );
-                           }
-                           return null;
-                        })()}
-
-                        {/* List of matches for quick clicks */}
-                        {customerEmailSearch.trim().length > 0 && !customers.some(c => c.id === selectedCustomerId && c.email.toLowerCase().trim() === customerEmailSearch.toLowerCase().trim()) && (
-                          <div className="bg-white border border-slate-200 rounded-lg max-h-[110px] overflow-y-auto divide-y divide-slate-100 shadow-md">
-                            {customers.filter(c => c.email.toLowerCase().includes(customerEmailSearch.toLowerCase())).slice(0, 4).map(c => (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedCustomerId(c.id);
-                                  setCustomerEmailSearch(c.email);
-                                }}
-                                className="w-full text-left px-2.5 py-1.5 hover:bg-slate-50 text-[11px] font-medium text-slate-700 flex justify-between items-center transition-colors cursor-pointer"
-                              >
-                                <span className="font-semibold truncate max-w-[130px]">{c.name}</span>
-                                <span className="text-slate-400 text-[10px] font-mono shrink-0 ml-1">{c.email}</span>
-                              </button>
-                            ))}
-                            {customers.filter(c => c.email.toLowerCase().includes(customerEmailSearch.toLowerCase())).length === 0 && (
-                              <p className="text-[10px] text-slate-400 p-2 text-center font-sans">Ningún cliente coincide con este correo</p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Standard selector dropdown as a fallback */}
-                        <div>
-                          <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                            O selecciona de la lista:
-                          </label>
+                          <label className="block text-[8.5px] font-bold text-slate-500 uppercase">Documento</label>
                           <select
-                            value={selectedCustomerId}
+                            value={docTipo}
                             onChange={(e) => {
-                              const id = e.target.value;
-                              setSelectedCustomerId(id);
-                              const match = customers.find(c => c.id === id);
-                              if (match) {
-                                setCustomerEmailSearch(match.email);
-                              } else {
-                                setCustomerEmailSearch('');
-                              }
+                              const val = Number(e.target.value);
+                              setDocTipo(val);
+                              if (val === 99) setDocNro('');
                             }}
-                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-700 font-semibold focus:outline-hidden focus:ring-1 focus:ring-blue-200 focus:border-blue-500 cursor-pointer"
+                            className="w-full bg-white border border-slate-250 rounded px-1.5 py-1 text-[11px] text-slate-800"
                           >
-                            <option value="">Consumidor Final (Anónimo)</option>
-                            {customers.map(c => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} {c.docId ? `(DNI: ${c.docId})` : ''} - {c.email}
-                              </option>
-                            ))}
+                            <option value={99}>Consumidor Final</option>
+                            <option value={96}>DNI (Persona)</option>
+                            <option value={80}>CUIT (Empresa)</option>
                           </select>
                         </div>
+                        {docTipo !== 99 && (
+                          <div>
+                            <label className="block text-[8.5px] font-bold text-slate-500 uppercase">Número</label>
+                            <input
+                              type="text"
+                              placeholder={docTipo === 80 ? 'CUIT 11 dig' : 'DNI 8 dig'}
+                              value={docNro}
+                              onChange={(e) => setDocNro(e.target.value.replace(/\D/g, ''))}
+                              className="w-full bg-white border border-slate-250 rounded px-1.5 py-1 text-[11px] font-mono text-slate-800"
+                            />
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <div className="space-y-2 text-left">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[9px] font-semibold text-slate-500 mb-0.5">Nombre Completo *</label>
-                            <input
-                              type="text"
-                              placeholder="Juan Pérez"
-                              value={newCustName}
-                              onChange={(e) => setNewCustName(e.target.value)}
-                              className="w-full p-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden focus:border-blue-500 font-medium text-slate-850"
-                              required={customerMode === 'new'}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] font-semibold text-slate-500 mb-0.5">Email *</label>
-                            <input
-                              type="email"
-                              placeholder="juan@gmail.com"
-                              value={newCustEmail}
-                              onChange={(e) => setNewCustEmail(e.target.value)}
-                              className="w-full p-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden focus:border-blue-500 font-medium text-slate-850"
-                              required={customerMode === 'new'}
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[9px] font-semibold text-slate-500 mb-0.5">DNI o CUIT</label>
-                            <input
-                              type="text"
-                              placeholder="Opcional"
-                              value={newCustDocId}
-                              onChange={(e) => setNewCustDocId(e.target.value)}
-                              className="w-full p-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden focus:border-blue-500 font-medium text-slate-850"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] font-semibold text-slate-500 mb-0.5">Teléfono</label>
-                            <input
-                              type="text"
-                              placeholder="Opcional"
-                              value={newCustPhone}
-                              onChange={(e) => setNewCustPhone(e.target.value)}
-                              className="w-full p-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden focus:border-blue-500 font-medium text-slate-850"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-[9px] font-semibold text-slate-500 mb-0.5">Dirección de Entrega</label>
-                          <input
-                            type="text"
-                            placeholder="Opcional, ej. Av. Corrientes 1234"
-                            value={newCustAddress}
-                            onChange={(e) => setNewCustAddress(e.target.value)}
-                            className="w-full p-1 bg-white border border-slate-200 rounded text-xs focus:outline-hidden focus:border-blue-500 font-medium text-slate-850"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Asociar Cliente */}
+                <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/70 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                      <Users className="w-3 h-3 text-blue-500" />
+                      <span>Cliente</span>
+                    </label>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setCustomerMode('select')}
+                        className={`px-1.5 py-0.5 text-[8.5px] font-bold rounded cursor-pointer ${customerMode === 'select' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}
+                      >
+                        Buscar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCustomerMode('new')}
+                        className={`px-1.5 py-0.5 text-[8.5px] font-bold rounded cursor-pointer ${customerMode === 'new' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}
+                      >
+                        + Nuevo
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Active employee identifier */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-widest mb-1.5 flex items-center justify-between">
-                      <span>Cajero Atendiendo</span>
-                      {currentUser && <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-black font-sans">Sesión Activa</span>}
-                    </label>
+                  {customerMode === 'select' ? (
                     <select
-                      value={selectedSellerId}
-                      onChange={(e) => setSelectedSellerId(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
-                      required
-                      disabled={!!currentUser}
+                      value={selectedCustomerId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setSelectedCustomerId(id);
+                        const match = customers.find(c => c.id === id);
+                        if (match) setCustomerEmailSearch(match.email);
+                        else setCustomerEmailSearch('');
+                      }}
+                      className="w-full px-2 py-1 bg-white border border-slate-250 rounded-lg text-[11px] font-semibold text-slate-800 cursor-pointer"
                     >
-                      <option value="" disabled>Seleccionar Cajero...</option>
-                      {activeSellers.map(emp => (
-                        <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
+                      <option value="">Consumidor Final (Anónimo)</option>
+                      {customers.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {c.docId ? `(DNI: ${c.docId})` : ''}
+                        </option>
                       ))}
                     </select>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <input
+                        type="text"
+                        placeholder="Nombre *"
+                        value={newCustName}
+                        onChange={(e) => setNewCustName(e.target.value)}
+                        className="p-1 bg-white border rounded text-[11px]"
+                        required={customerMode === 'new'}
+                      />
+                      <input
+                        type="email"
+                        placeholder="Email *"
+                        value={newCustEmail}
+                        onChange={(e) => setNewCustEmail(e.target.value)}
+                        className="p-1 bg-white border rounded text-[11px]"
+                        required={customerMode === 'new'}
+                      />
+                    </div>
+                  )}
+
+                  {/* Active Cashier line */}
+                  <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/60 flex items-center justify-between">
+                    <span className="font-semibold text-slate-600">Cajero:</span>
+                    {currentUser ? (
+                      <span className="font-bold text-slate-800 bg-slate-200/60 px-1.5 py-0.5 rounded text-[9.5px]">
+                        {currentUser.name} ({currentUser.role})
+                      </span>
+                    ) : (
+                      <select
+                        value={selectedSellerId}
+                        onChange={(e) => setSelectedSellerId(e.target.value)}
+                        className="bg-white border rounded px-1 py-0.5 text-[10px] font-bold text-slate-700"
+                        required
+                      >
+                        <option value="" disabled>Elegir Cajero...</option>
+                        {activeSellers.map(emp => (
+                          <option key={emp.id} value={emp.id}>{emp.name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
               </div>
-
-              {/* Total Display - Centrado de forma elegante en el medio sin recortar los bordes laterales */}
-              <div className="py-4.5 px-6 bg-emerald-500/[0.07] rounded-3xl border-2 border-emerald-500 shadow-md shadow-emerald-500/5 font-sans my-4 text-center mx-1 animate-fade-in">
-                <span className="text-[11px] text-slate-700 font-extrabold uppercase tracking-widest block mb-1">TOTAL A COBRAR</span>
-                <span className="text-4xl font-black text-emerald-600 font-mono tracking-tight block">
-                  ${total.toLocaleString('es-AR')}
-                </span>
-                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1 block">Unidades listadas en carro de compras</span>
-              </div>
-
-              {/* Submit Buttons footer */}
-              <div className="flex items-center gap-2.5 pt-3 border-t border-slate-100 shrink-0">
-                <button
-                  type="button"
-                  disabled={isGeneratingInvoice}
-                  onClick={() => setIsCheckoutOpen(false)}
-                  className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl text-sm cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancelar Pago
-                </button>
-                <button
-                  type="submit"
-                  disabled={isGeneratingInvoice}
-                  className={`
-                    flex-1 py-2 font-extrabold rounded-xl text-sm shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2
-                    ${isGeneratingInvoice 
-                      ? 'bg-blue-600 text-white cursor-not-allowed' 
-                      : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/15'
-                    }
-                  `}
-                >
-                  {isGeneratingInvoice ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Autorizando AFIP...
-                    </>
-                  ) : (
-                    'Confirmar Cobro'
-                  )}
-                </button>
-              </div>
             </form>
+
+            {/* Sticky Action Footer */}
+            <div className="flex items-center gap-2 pt-2.5 mt-1 border-t border-slate-100 shrink-0">
+              <button
+                type="button"
+                disabled={isGeneratingInvoice}
+                onClick={() => setIsCheckoutOpen(false)}
+                className="py-2.5 px-3 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl text-xs sm:text-sm cursor-pointer transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCheckout}
+                disabled={isGeneratingInvoice}
+                className={`
+                  flex-1 py-2.5 sm:py-3 px-4 font-black rounded-xl text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5
+                  ${isGeneratingInvoice 
+                    ? 'bg-blue-600 text-white cursor-not-allowed' 
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 active:scale-[0.99]'
+                  }
+                `}
+              >
+                {isGeneratingInvoice ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Autorizando AFIP...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4.5 h-4.5" />
+                    <span>Confirmar Venta (${total.toLocaleString('es-AR')})</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
