@@ -1176,17 +1176,19 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
               {/* Primary Portal Navigation Tabs */}
               <div>
                 <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest text-center mb-2">Selecciona tu Portal de Acceso</p>
-                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100/80 rounded-2xl border border-slate-200">
+                <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-slate-100 rounded-2xl border border-slate-200" role="tablist">
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={mainPortalTab === 'comprador'}
                     onClick={() => {
                       setMainPortalTab('comprador');
                       setLoginError('');
                     }}
-                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
                       mainPortalTab === 'comprador'
-                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-extrabold border border-emerald-700'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold'
                     }`}
                   >
                     <ShoppingCart className="w-4 h-4 shrink-0" />
@@ -1195,14 +1197,16 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={mainPortalTab === 'comercio'}
                     onClick={() => {
                       setMainPortalTab('comercio');
                       setLoginError('');
                     }}
-                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
                       mainPortalTab === 'comercio'
-                        ? 'bg-orange-500 text-slate-950 shadow-md shadow-orange-500/20'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                        ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30 font-extrabold border border-orange-600'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold'
                     }`}
                   >
                     <Store className="w-4 h-4 shrink-0" />
@@ -1211,14 +1215,16 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={mainPortalTab === 'proveedor'}
                     onClick={() => {
                       setMainPortalTab('proveedor');
                       setLoginError('');
                     }}
-                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                    className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
                       mainPortalTab === 'proveedor'
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-extrabold border border-indigo-700'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold'
                     }`}
                   >
                     <Truck className="w-4 h-4 shrink-0" />
@@ -1358,31 +1364,35 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
                 <div className="space-y-4 animate-fade-in text-left">
                   
                   {/* Sub-selector Dueño vs Empleado */}
-                  <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                  <div className="flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200 gap-1" role="tablist">
                     <button
                       type="button"
+                      role="tab"
+                      aria-selected={loginTab === 'comercio'}
                       onClick={() => {
                         setLoginTab('comercio');
                         setLoginError('');
                       }}
-                      className={`flex-1 text-center py-2 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                      className={`flex-1 text-center py-2.5 px-3 text-xs font-black rounded-xl transition-all cursor-pointer ${
                         loginTab === 'comercio'
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30 border border-orange-600'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold'
                       }`}
                     >
                       🏢 Dueño / Comercio
                     </button>
                     <button
                       type="button"
+                      role="tab"
+                      aria-selected={loginTab === 'empleado'}
                       onClick={() => {
                         setLoginTab('empleado');
                         setLoginError('');
                       }}
-                      className={`flex-1 text-center py-2 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                      className={`flex-1 text-center py-2.5 px-3 text-xs font-black rounded-xl transition-all cursor-pointer ${
                         loginTab === 'empleado'
-                          ? 'bg-white text-orange-600 shadow-xs'
-                          : 'text-slate-500 hover:text-slate-800'
+                          ? 'bg-orange-500 text-white shadow-md shadow-orange-500/30 border border-orange-600'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold'
                       }`}
                     >
                       👨‍💼 Cajero / Empleado (POS)
@@ -1496,16 +1506,16 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
                     <button
                       type="submit"
                       disabled={isLoggingIn}
-                      className="w-full py-3 bg-orange-500 hover:bg-orange-600 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/10 hover:shadow-orange-500/15 transition-all cursor-pointer disabled:opacity-50 mt-2"
+                      className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 hover:shadow-orange-500/35 transition-all cursor-pointer disabled:opacity-50 active:scale-98 mt-2"
                     >
                       {isLoggingIn ? (
                         <>
-                          <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin shrink-0" />
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
                           <span>Ingresando al sistema...</span>
                         </>
                       ) : (
                         <>
-                          <span>Ingresar</span>
+                          <span>Ingresar al Sistema</span>
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}

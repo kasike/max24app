@@ -235,6 +235,14 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   3. **Copiado al Portapapeles Nativo (`📋 Copiar`)**: Se añadió integración directa con `navigator.clipboard.writeText` para permitir la copia tradicional al portapapeles con confirmación gráfica.
   4. **Atajo Directo en Formulario de Verificación**: Se colocó el disparador de autocompletado directamente arriba del campo de texto principal del 2FA para permitir la carga del código con un solo toque incluso si la ventana flotante es descartada.
 
+### Error 27: Falta de Contraste y Claridad en Pestañas Seleccionadas de Inicio de Sesión (`Login.tsx`)
+* **Fallo:** En las pestañas principales del portal (`Comercio POS`, `Compradores`, `Proveedores`) y los sub-selectores de rol (`Dueño / Comercio` y `Cajero / Empleado`), la pestaña activa utilizaba fondos blancos o textos oscuros sobre naranja sin suficiente jerarquía, haciendo confuso para el usuario identificar en qué sección se encontraba parado.
+* **Causa:** Uso de combinaciones de color de bajo contraste (texto `slate-950` sobre fondo naranja y botones de pestaña activa en blanco tenue `bg-white text-slate-900` dentro de contenedor `bg-slate-100`), sin sombra ni bordes de realce de marca.
+* **Solución:**
+  1. **Rediseño de Pestañas Activas con Color de Marca Naranja MAX24**: Se aplicó el color primario (`bg-orange-500` con texto blanco puro `text-white font-extrabold`), borde delimitador `border-orange-600` y sombra de elevación (`shadow-md shadow-orange-500/30`), garantizando que la pestaña seleccionada destaque de forma instantánea.
+  2. **Pestañas Inactivas Sutiles**: Se estructuraron las opciones no seleccionadas con fondos transparentes/ligeros y texto `text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold`.
+  3. **Accesibilidad WCAG (`role="tab"` & `aria-selected`)**: Se añadieron los atributos semánticos `role="tab"` y `aria-selected={active}` para lectores de pantalla.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.
