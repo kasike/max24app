@@ -276,6 +276,12 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   2. **Habilitación de Tecla Igual (`=`)**: Se simplificó el manejador de la tecla `=` para que asigne directamente el total evaluado calculado (`calcEvaluatedTotal.toString()`) a la expresión en pantalla.
   3. **Adición Exacta al Carrito**: Se garantizó que la función `handleAddQuickItemToCart` utilice directamente la suma evaluada real de todos los valores ingresados.
 
+### Característica 32: Apertura Automática de Modal de Facturación/Cobro desde Calculadora Express (`POS.tsx`)
+* **Requerimiento:** Al utilizar la calculadora express para cargar importes rápidos, los cajeros requerían que al presionar "Agregar al POS" o "Enter", se desplegara inmediatamente la pantalla de cobro/facturación ("Finalizar Transacción") para elegir la forma de pago sin pasos adicionales.
+* **Solución:**
+  1. **Apertura Directa de Modal de Pago (`setIsCheckoutOpen(true)`)**: Se modificó `handleAddQuickItemToCart` para que su parámetro por defecto `directCheckout` sea `true`.
+  2. **Acción de Tecla Enter y Botón Principal**: Se vinculó la tecla `Enter` del input y el botón principal del modal "Agregar y Facturar / Cobrar" para que agreguen el ítem al carrito y abran al instante la ventana modal de selección de método de pago (Efectivo, MercadoPago, Tarjetas, Transferencia, etc.).
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

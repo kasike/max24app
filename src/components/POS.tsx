@@ -169,8 +169,8 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
     }
   };
 
-  // Add calculated quick item to active cart
-  const handleAddQuickItemToCart = (directCheckout: boolean = false) => {
+  // Add calculated quick item to active cart and open payment checkout modal
+  const handleAddQuickItemToCart = (directCheckout: boolean = true) => {
     const amount = calcEvaluatedTotal > 0 ? calcEvaluatedTotal : (parseFloat(calcExpression) || 0);
     if (amount <= 0) {
       alert("Por favor ingresa una suma o monto mayor a $0 en la calculadora.");
@@ -2283,7 +2283,7 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      handleAddQuickItemToCart(false);
+                      handleAddQuickItemToCart(true);
                     }
                   }}
                   placeholder="0 + 0"
@@ -2464,19 +2464,19 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
               <button
                 type="button"
                 onClick={() => handleAddQuickItemToCart(false)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-sm"
+                className="w-full py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-xs"
               >
-                <Plus className="w-4 h-4 text-emerald-400" />
-                <span>Agregar al POS (${calcEvaluatedTotal.toLocaleString('es-AR')})</span>
+                <Plus className="w-4 h-4 text-slate-600" />
+                <span>Solo Agregar al Carrito</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleAddQuickItemToCart(true)}
-                className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-md shadow-emerald-600/20 uppercase tracking-wide"
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs sm:text-sm rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer font-sans shadow-md shadow-emerald-600/25 uppercase tracking-wide"
               >
-                <Zap className="w-4 h-4 text-amber-300" />
-                <span>Cobrar Directo</span>
+                <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                <span>Agregar y Facturar / Cobrar (${calcEvaluatedTotal.toLocaleString('es-AR')})</span>
               </button>
             </div>
 

@@ -10,6 +10,9 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Corregido
+- **Apertura Automática del Modal de Facturación/Cobro desde la Calculadora Express (`POS.tsx`)**:
+  1. Se actualizó el parámetro por defecto `directCheckout` a `true` en la función `handleAddQuickItemToCart`.
+  2. Al presionar "Agregar y Facturar / Cobrar" o presionar la tecla `Enter` en el campo de expresión de la calculadora, se agrega el importe al carrito y se abre automáticamente la pantalla modal de "Finalizar Transacción" para seleccionar la forma de pago (Efectivo, MercadoPago, Tarjetas, Transferencia, Cuenta Corriente) y realizar la venta en un solo paso.
 - **Reparación de Evaluación de Sumas y Tecla '=' en Calculadora Express (`POS.tsx`)**:
   1. Se eliminó la llamada errónea `!isInfinite(result)` en `calcEvaluatedTotal`, reemplazándola por `Number.isFinite(result)`. Esto solucionó un `ReferenceError` interno que provocaba que la evaluación matemática devolviera `$0`.
   2. Se corrigió el problema por el cual al ingresar sumas múltiples (ej. `120+50000+250`), únicamente se agregaba el primer número (`120`) al carrito. Ahora se suma y calcula la totalidad de los valores agregados (ej. `$50.370`).
