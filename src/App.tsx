@@ -27,6 +27,8 @@ import TrialPaywall from './components/TrialPaywall';
 import Comidas from './components/Comidas';
 import CashierLobby from './components/CashierLobby';
 import CalendarComponent from './components/CalendarComponent';
+import StoreHealthBanner from './components/StoreHealthBanner';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 // Import newly integrated Firebase services and error handler helpers
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
@@ -358,6 +360,13 @@ export default function App() {
     const saved = localStorage.getItem('store_settings');
     return saved ? JSON.parse(saved) : INITIAL_STORE_SETTINGS;
   });
+
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'generales' | 'costos' | 'arca' | 'compliance'>('generales');
+
+  const handleOpenSettingsTab = (tab: 'generales' | 'costos' | 'arca' | 'compliance') => {
+    setActiveSettingsTab(tab);
+    setCurrentTab('settings');
+  };
 
   // Categories list State
   const [categories, setCategories] = useState<Category[]>(() => {
@@ -2165,6 +2174,7 @@ export default function App() {
             settings={storeSettings}
             onUpdateSettings={handleUpdateSettings}
             currentUserEmail={currentUser?.email || ''}
+            initialTab={activeSettingsTab}
           />
         );
       case 'subscription':
@@ -2637,6 +2647,48 @@ export default function App() {
               </div>
             </div>
           )}
+
+          {/* Compliance & Regulatory Expiration Alert Banner */}
+          {currentUser && (currentUser.role === 'Administrador' || currentUser.role === 'Gerente' || isSuperAdmin) && 
+           storeSettings.complianceDocuments && storeSettings.complianceDocuments.some(doc => {
+             if (!doc.expirationDate) return false;
+             const exp = new Date(doc.expirationDate);
+             const today = new Date();
+             const diffDays = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+             return diffDays <= (doc.notifyBeforeDays || 30);
+           }) && (
+             <div className="mb-6 p-4 bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl border border-red-500 relative overflow-hidden z-40 animate-pulse">
+               <div className="flex items-center gap-3 text-left">
+                 <span className="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center text-lg font-bold shrink-0">🛡️</span>
+                 <div>
+                   <h4 className="text-sm font-black tracking-tight text-white flex items-center gap-2">
+                     Alerta de Control Regulatorio: Trámites o Vencimientos Urgentes
+                   </h4>
+                   <p className="text-[11px] text-white/95 font-medium leading-relaxed">
+                     Hay documentos de habilitación municipal, matafuegos o fumigación próximos a vencer o vencidos. Renueva a tiempo para evitar multas o clausuras.
+                   </p>
+                 </div>
+               </div>
+               <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                 <button
+                   onClick={() => setCurrentTab('settings')}
+                   className="px-4 py-2 bg-slate-950 hover:bg-slate-900 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer whitespace-nowrap"
+                 >
+                   Ver Habilitaciones
+                 </button>
+               </div>
+             </div>
+           )}
+
+          {/* PWA Direct Installation Prompt */}
+          <PWAInstallPrompt />
+
+          {/* Store Health & Retention Banner (Progressive Onboarding) */}
+          <StoreHealthBanner 
+            storeSettings={storeSettings}
+            onOpenSettingsTab={handleOpenSettingsTab}
+            currentUser={currentUser}
+          />
 
           {renderTabContent()}
         </main>

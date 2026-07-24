@@ -158,6 +158,21 @@ export interface StoreSettings {
     amount: number;
   }[];
   billingConfig?: BillingConfig;
+  complianceDocuments?: ComplianceDocument[];
+  complianceNotifyEnabled?: boolean;
+}
+
+export interface ComplianceDocument {
+  id: string;
+  documentType: string; // e.g. "Habilitación Municipal (Comercial)", "Carga y Control de Matafuegos (Anual)", etc.
+  certificateNumber?: string;
+  issueDate?: string;
+  expirationDate: string; // YYYY-MM-DD
+  notifyBeforeDays?: number; // default 30
+  notes?: string;
+  status?: 'ACTIVE' | 'WARNING' | 'EXPIRED';
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface BillingConfig {

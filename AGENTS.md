@@ -163,6 +163,36 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   2. **Validación en Pestaña Compradores (`mainPortalTab === 'comprador'`)**: Exige rol `Comprador`.
   3. **Validación en Pestaña Comercio POS (`mainPortalTab === 'comercio'`)**: Exige roles `Administrador` / `Soporte` para dueños, y roles de empleado (`Cajero` / `Supervisor` / `Gerente`) para la subpestaña de empleados. Si un usuario de Proveedor intenta ingresar aquí, se rechaza notificando la pestaña correspondiente.
 
+### Característica 19: Módulo de Habilitaciones y Control Regulatorio (Ajustes de Tienda)
+* **Requerimiento:** En Argentina (como Salta Capital y otros municipios), los locales comerciales requieren renovación periódica de Habilitaciones Municipales (2-3 años), Carga/Control de Matafuegos (anual), Certificados de Fumigación y Desinsectación (mensual/trimestral) y Pólizas de Seguro. Olvidar estos vencimientos acarrea multas severas y clausuras.
+* **Solución:** Se diseñó e integró la cuarta pestaña **"Habilitaciones & Cumplimiento"** dentro de `Settings.tsx`:
+  1. **Tipado y Estructura en Firestore**: Se expandió la interfaz `StoreSettings` en `types.ts` con la colección de documentos `complianceDocuments` (`ComplianceDocument[]`) y la bandera de alertas preventivas `complianceNotifyEnabled`.
+  2. **Presets Automatizados para Argentina**: Botones de un clic para registrar rápidamente trámites habituales: *Habilitación Municipal Commercial*, *Control / Recarga de Matafuegos*, *Fumigación y Desinfección*, *Seguro de Comercio y Responsabilidad Civil*, *Manipulación de Alimentos*.
+  3. **Control Inteligente de Vencimientos (`calculateDocumentStatus`)**: Determina dinámicamente con semáforos visuales el estado del trámite: 🔴 *Vencido*, 🟡 *Próximo a Vencer* (dentro del umbral configurado de 30, 15 o 7 días), y 🟢 *Vigente*.
+  4. **Acción de Renovación Rápida**: Botón de un solo clic ("Renovar 1 año") que actualiza la fecha de vencimiento sumando 365 días manteniendo el número de certificado y las notas originales.
+  5. **Banners Alerta Preventivos a Nivel Global**: Si el comercio tiene trámites vencidos o próximos a vencer, la pantalla principal de `App.tsx` despliega un banner destacado invitando al comerciante a regularizar la documentación antes de sufrir clausuras o multas.
+
+### Característica 20: Sistema de Onboarding Progresivo & Salud del Comercio (Retention Loop)
+* **Requerimiento:** Evitar que los comerciantes abandonen la app al registrarse por exceso de formularios iniciales, permitiéndoles facturar de inmediato y recordándoles de forma periódica y no invasiva completar su perfil (logo, costos fijos, habilitaciones, facturación ARCA).
+* **Solución:** Se diseñó e implementó un motor de onboarding asíncrono y no bloqueante:
+  1. **Algoritmo de Cálculo de Salud (`calculateStoreHealthScore` en `/src/utils/storeHealth.ts`)**: Mide el progreso del comercio de 0% a 100%:
+     - 25% Base (Registro inicial: Nombre, Teléfono, Dirección)
+     - +15% Logo subido
+     - +20% Costos Fijos cargados (Alquiler, Luz, Internet para informe de ganancias reales)
+     - +20% Fechas de Habilitaciones y Matafuegos registradas
+     - +20% Facturación Electrónica ARCA/AFIP configurada.
+  2. **Banner de Asistente de Salud (`StoreHealthBanner.tsx`)**: Se posiciona en la parte superior del espacio de trabajo. Presenta una barra de progreso interactiva, expone la principal tarea pendiente y cuenta con los botones *"Completar Ahora"* (dirige automáticamente a la pestaña específica de Ajustes), *"Recordarme en 7 días"* (pospone el banner durante 1 semana guardando el estado en `localStorage`) y *"Omitir"*.
+  3. **Panel de Salud Integrado en Ajustes (`Settings.tsx`)**: Despliega una tarjeta interactiva con cuadrícula de 4 accesos rápidos que permite al comerciante visualizar qué aspectos de su tienda están al 100% (🟢) o cuáles requieren atención (⚪) con navegación directa a cada sección.
+  4. **Naturaleza Totalmente No Bloqueante**: La presencia del banner o faltantes de configuración no interrumpe en ningún momento la facturación del POS, gestión de inventario, cajas o clientes.
+
+### Característica 21: PWA (Progressive Web App) e Instalación Directa sin Intermediarios
+* **Requerimiento:** Permitir a los comerciantes instalen MAX24 de forma inmediata en sus teléfonos (Android / iPhone) o PCs desde la web como App Nativa sin esperar la aprobación de la firma/clave en Google Play Store.
+* **Solución:** Se implementó una arquitectura de PWA completa:
+  1. **Manifiesto Web (`/public/manifest.webmanifest`)**: Define el nombre de la app, íconos adaptativos maskable, esquemas de color (`#090d16`), orientación y modo `standalone` pantalla completa sin barra de navegación.
+  2. **Service Worker PWA (`/public/sw.js`)**: Gestiona la caché de archivos estáticos (`/index.html`, imágenes, manifiesto), habilitando carga ultra-rápida y resistencia a micro-cortes de conexión. Excluye explícitamente peticiones API e interacciones de Firebase.
+  3. **Banner y Modal de Instalación Inteligente (`PWAInstallPrompt.tsx`)**: Captura el evento nativo `beforeinstallprompt` (Chrome, Edge, Android) para ofrecer un botón de instalación en un toque ("Instalar App"). Detecta dispositivos iOS (iPhone/Safari) desplegando un instructivo guiado paso a paso (*"Compartir ⎋ -> Agregar a Inicio"*).
+  4. **Compatibilidad 100% Futura con Play Store (Capacitor/Android)**: La PWA convive sin conflictos con la futura compilación APK/AAB para Google Play Store, sirviendo como canal de distribución inmediato para los comerciantes.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

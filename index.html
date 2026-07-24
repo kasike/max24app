@@ -23,10 +23,16 @@
       gtag('config', 'G-P3E6CXY9RE');
     </script>
     
-    <!-- Favicon Links -->
+    <!-- Favicon Links & PWA Manifest -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" type="image/png" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#090d16" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MAX24" />
 
     <!-- SEO Meta Tags -->
     <meta name="description" content="MAX24 es el software punto de venta para comercios y sistema de gestion comercial web definitivo para maxikioscos, almacenes, tiendas de ropa, indumentaria, despensas, drugstores y bazares con control de stock y ventas en la nube." />
@@ -221,6 +227,18 @@
           container.appendChild(a);
         }
       })();
+    </script>
+    <script>
+      // Service Worker Registration for PWA Support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js').then(function(registration) {
+            console.log('MAX24 PWA ServiceWorker registrado con éxito:', registration.scope);
+          }, function(err) {
+            console.log('MAX24 PWA ServiceWorker fallo al registrar:', err);
+          });
+        });
+      }
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

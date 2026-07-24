@@ -277,6 +277,36 @@ export const INITIAL_STORE_SETTINGS: StoreSettings = {
     { day: 'Viernes', isOpen: true, is24h: false, openTime: '08:00', closeTime: '22:00' },
     { day: 'Sábado', isOpen: true, is24h: false, openTime: '08:00', closeTime: '22:00' },
     { day: 'Domingo', isOpen: false, is24h: false, openTime: '09:00', closeTime: '13:00' }
+  ],
+  complianceNotifyEnabled: true,
+  complianceDocuments: [
+    {
+      id: 'doc-1',
+      documentType: '🏢 Habilitación Municipal (Comercial)',
+      certificateNumber: 'HAB-SALTA-2025-8849',
+      issueDate: '2025-03-15',
+      expirationDate: '2028-03-15',
+      notifyBeforeDays: 30,
+      notes: 'Habilitación comercial definitiva expedida por la Municipalidad.'
+    },
+    {
+      id: 'doc-2',
+      documentType: '🧯 Carga y Control de Matafuegos (Anual)',
+      certificateNumber: 'MAT-55210-OPDS',
+      issueDate: '2025-08-10',
+      expirationDate: '2026-08-10', // Upcoming or valid
+      notifyBeforeDays: 30,
+      notes: 'Revision técnica de 3 matafuegos ABC 5kg en salón y depósito.'
+    },
+    {
+      id: 'doc-3',
+      documentType: '🪰 Certificado de Fumigación / Desinfección',
+      certificateNumber: 'FUM-7741',
+      issueDate: '2026-05-20',
+      expirationDate: '2026-06-20', // Expired or close to expiration for demonstration
+      notifyBeforeDays: 15,
+      notes: 'Control mensual obligatorio de plagas y vectores.'
+    }
   ]
 };
 

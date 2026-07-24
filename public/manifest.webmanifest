@@ -1,0 +1,22 @@
+{
+  "name": "MAX24 • Sistema de Gestión de Comercio y POS",
+  "short_name": "MAX24",
+  "description": "Software punto de venta POS, control de stock y gestión de ventas para kioscos, almacenes y comercios.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "shopping", "productivity", "utilities"],
+  "dir": "ltr",
+  "lang": "es-AR"
+}

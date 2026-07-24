@@ -23,9 +23,20 @@ import {
   ExternalLink,
   Plus,
   Trash2,
-  DollarSign
+  DollarSign,
+  ShieldCheck,
+  FileCheck,
+  AlertTriangle,
+  CheckCircle2,
+  Bell,
+  Edit3,
+  Filter,
+  Search,
+  RefreshCw,
+  ShieldAlert
 } from 'lucide-react';
-import { StoreSettings } from '../types';
+import { StoreSettings, ComplianceDocument } from '../types';
+import { calculateStoreHealthScore } from '../utils/storeHealth';
 import { db } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
@@ -33,7 +44,67 @@ interface SettingsProps {
   settings: StoreSettings;
   onUpdateSettings: (settings: StoreSettings) => void;
   currentUserEmail?: string;
+  initialTab?: 'generales' | 'costos' | 'arca' | 'compliance';
 }
+
+export function calculateDocumentStatus(expirationDateStr: string, notifyBeforeDays: number = 30) {
+  if (!expirationDateStr) {
+    return {
+      status: 'ACTIVE' as const,
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold',
+      label: 'Vigente',
+      daysLeft: 999
+    };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expParts = expirationDateStr.split('-');
+  let expDate: Date;
+  if (expParts.length === 3) {
+    expDate = new Date(Number(expParts[0]), Number(expParts[1]) - 1, Number(expParts[2]));
+  } else {
+    expDate = new Date(expirationDateStr);
+  }
+  expDate.setHours(0, 0, 0, 0);
+
+  const diffTime = expDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return {
+      status: 'EXPIRED' as const,
+      badgeClass: 'bg-red-500/10 text-red-700 border-red-300 font-extrabold',
+      label: `🔴 VENCIDO (${Math.abs(diffDays)} d)`,
+      daysLeft: diffDays
+    };
+  } else if (diffDays <= notifyBeforeDays) {
+    return {
+      status: 'WARNING' as const,
+      badgeClass: 'bg-amber-500/10 text-amber-800 border-amber-300 font-extrabold',
+      label: `🟡 Próximo (${diffDays} d)`,
+      daysLeft: diffDays
+    };
+  } else {
+    return {
+      status: 'ACTIVE' as const,
+      badgeClass: 'bg-emerald-500/10 text-emerald-800 border-emerald-300 font-bold',
+      label: `🟢 Vigente (${diffDays} d rest.)`,
+      daysLeft: diffDays
+    };
+  }
+}
+
+const ARGENTINA_COMPLIANCE_PRESETS = [
+  { label: '🏢 Habilitación Municipal (Comercial)', notifyDays: 30, desc: 'Licencia comercial obligatoria' },
+  { label: '🧯 Carga y Control de Matafuegos (Anual)', notifyDays: 30, desc: 'Recarga y oblea de extintores' },
+  { label: '🪰 Certificado de Fumigación / Desinfección', notifyDays: 15, desc: 'Control mensual de plagas y vectores' },
+  { label: '📋 Libreta Sanitaria del Personal', notifyDays: 30, desc: 'Aptitud física e higiene' },
+  { label: '🛡️ Seguro de Responsabilidad Civil / Incendio', notifyDays: 30, desc: 'Póliza comercial del local' },
+  { label: '⚡ Certificado de Aptitud Eléctrica (Anual)', notifyDays: 30, desc: 'Puesta a tierra y tableros' },
+  { label: '✍️ Otro Trámite / Certificado Personalizado', notifyDays: 30, desc: 'Cualquier otro trámite legal' }
+];
 
 const PRESET_LOGOS = [
   { name: 'Naranja Eléctrico', url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=120' },
@@ -51,7 +122,7 @@ const DEFAULT_DETAILED_HOURS = [
   { day: 'Domingo', isOpen: false, is24h: false, openTime: '09:00', closeTime: '13:00' }
 ];
 
-export default function Settings({ settings, onUpdateSettings, currentUserEmail }: SettingsProps) {
+export default function Settings({ settings, onUpdateSettings, currentUserEmail, initialTab }: SettingsProps) {
   const [name, setName] = useState(settings.name);
   const [address, setAddress] = useState(settings.address);
   const [phone, setPhone] = useState(settings.phone);
@@ -88,7 +159,59 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
     settings.billingConfig?.environment || 'sandbox'
   );
 
-  const [activeTab, setActiveTab] = useState<'generales' | 'costos' | 'arca'>('generales');
+  // Compliance & Regulatory state
+  const [complianceNotifyEnabled, setComplianceNotifyEnabled] = useState<boolean>(
+    settings.complianceNotifyEnabled !== false
+  );
+  const [complianceDocuments, setComplianceDocuments] = useState<ComplianceDocument[]>(
+    settings.complianceDocuments && settings.complianceDocuments.length > 0
+      ? settings.complianceDocuments
+      : [
+          {
+            id: 'doc-1',
+            documentType: '🏢 Habilitación Municipal (Comercial)',
+            certificateNumber: 'HAB-SALTA-2025-8849',
+            issueDate: '2025-03-15',
+            expirationDate: '2028-03-15',
+            notifyBeforeDays: 30,
+            notes: 'Habilitación comercial definitiva expedida por la Municipalidad.'
+          },
+          {
+            id: 'doc-2',
+            documentType: '🧯 Carga y Control de Matafuegos (Anual)',
+            certificateNumber: 'MAT-55210-OPDS',
+            issueDate: '2025-08-10',
+            expirationDate: '2026-08-10',
+            notifyBeforeDays: 30,
+            notes: 'Revision técnica de 3 matafuegos ABC 5kg en salón y depósito.'
+          },
+          {
+            id: 'doc-3',
+            documentType: '🪰 Certificado de Fumigación / Desinfección',
+            certificateNumber: 'FUM-7741',
+            issueDate: '2026-05-20',
+            expirationDate: '2026-06-20',
+            notifyBeforeDays: 15,
+            notes: 'Control mensual obligatorio de plagas y vectores.'
+          }
+        ]
+  );
+
+  // Compliance Modal state
+  const [isComplianceModalOpen, setIsComplianceModalOpen] = useState(false);
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [docType, setDocType] = useState('🏢 Habilitación Municipal (Comercial)');
+  const [docCertNumber, setDocCertNumber] = useState('');
+  const [docIssueDate, setDocIssueDate] = useState('');
+  const [docExpirationDate, setDocExpirationDate] = useState('');
+  const [docNotifyDays, setDocNotifyDays] = useState(30);
+  const [docNotes, setDocNotes] = useState('');
+
+  // Compliance Search & Filter
+  const [complianceSearch, setComplianceSearch] = useState('');
+  const [complianceStatusFilter, setComplianceStatusFilter] = useState<'ALL' | 'EXPIRED' | 'WARNING' | 'ACTIVE'>('ALL');
+
+  const [activeTab, setActiveTab] = useState<'generales' | 'costos' | 'arca' | 'compliance'>(initialTab || 'generales');
   const [isGeneratingCsr, setIsGeneratingCsr] = useState(false);
 
   const downloadFile = (content: string, fileName: string, contentType: string) => {
@@ -425,7 +548,9 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
           certPem: billingCertPem || undefined,
           keyPem: finalKeyPem || undefined,
           environment: billingEnvironment
-        }
+        },
+        complianceDocuments,
+        complianceNotifyEnabled
       });
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
@@ -478,6 +603,91 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
     setTestResult(null);
   };
 
+  const handleOpenNewDocModal = (prefilledType?: string, defaultDays: number = 30) => {
+    setEditingDocId(null);
+    setDocType(prefilledType || '🏢 Habilitación Municipal (Comercial)');
+    setDocCertNumber('');
+    const todayStr = new Date().toISOString().split('T')[0];
+    setDocIssueDate(todayStr);
+    
+    // Default expiration: 1 year from now
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    setDocExpirationDate(nextYear.toISOString().split('T')[0]);
+
+    setDocNotifyDays(defaultDays);
+    setDocNotes('');
+    setIsComplianceModalOpen(true);
+  };
+
+  const handleEditDocModal = (doc: ComplianceDocument) => {
+    setEditingDocId(doc.id);
+    setDocType(doc.documentType);
+    setDocCertNumber(doc.certificateNumber || '');
+    setDocIssueDate(doc.issueDate || '');
+    setDocExpirationDate(doc.expirationDate || '');
+    setDocNotifyDays(doc.notifyBeforeDays || 30);
+    setDocNotes(doc.notes || '');
+    setIsComplianceModalOpen(true);
+  };
+
+  const handleSaveDoc = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docExpirationDate) {
+      alert("Por favor ingresa una fecha de vencimiento válida.");
+      return;
+    }
+
+    if (editingDocId) {
+      setComplianceDocuments(prev => prev.map(d => d.id === editingDocId ? {
+        ...d,
+        documentType: docType,
+        certificateNumber: docCertNumber,
+        issueDate: docIssueDate,
+        expirationDate: docExpirationDate,
+        notifyBeforeDays: Number(docNotifyDays) || 30,
+        notes: docNotes,
+        updatedAt: new Date().toISOString()
+      } : d));
+    } else {
+      const newDoc: ComplianceDocument = {
+        id: 'doc-' + Date.now(),
+        documentType: docType,
+        certificateNumber: docCertNumber,
+        issueDate: docIssueDate,
+        expirationDate: docExpirationDate,
+        notifyBeforeDays: Number(docNotifyDays) || 30,
+        notes: docNotes,
+        createdAt: new Date().toISOString()
+      };
+      setComplianceDocuments(prev => [newDoc, ...prev]);
+    }
+
+    setIsComplianceModalOpen(false);
+  };
+
+  const handleDeleteDoc = (id: string) => {
+    if (confirm("¿Estás seguro de eliminar este registro de cumplimiento?")) {
+      setComplianceDocuments(prev => prev.filter(d => d.id !== id));
+    }
+  };
+
+  const handleQuickRenew = (doc: ComplianceDocument, yearsToAdd: number = 1) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const newExp = new Date();
+    newExp.setFullYear(newExp.getFullYear() + yearsToAdd);
+    const newExpStr = newExp.toISOString().split('T')[0];
+
+    setComplianceDocuments(prev => prev.map(d => d.id === doc.id ? {
+      ...d,
+      issueDate: todayStr,
+      expirationDate: newExpStr,
+      updatedAt: new Date().toISOString()
+    } : d));
+
+    alert(`¡Documento "${doc.documentType}" renovado exitosamente hasta el ${newExpStr}!`);
+  };
+
   return (
     <div className="space-y-6 max-w-4xl" id="settings-view-root">
       {/* Page Header */}
@@ -487,10 +697,120 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
             Ajustes de Tienda
           </h2>
           <p className="text-xs text-slate-500 mt-1.5 font-sans">
-            Configura la identidad, contacto, dirección, costos y facturación fiscal de tu comercio en MAX24.
+            Configura la identidad, contacto, dirección, costos, ARCA y control regulatorio de tu comercio en MAX24.
           </p>
         </div>
       </div>
+
+      {/* Store Health & Progressive Onboarding Card */}
+      {(() => {
+        const health = calculateStoreHealthScore(settings);
+        const hasLogo = settings.logoUrl && settings.logoUrl.trim().length > 0;
+        const hasFixedCosts = settings.fixedCosts && settings.fixedCosts.length > 0;
+        const hasCompliance = settings.complianceDocuments && settings.complianceDocuments.length > 0;
+        const hasArca = settings.billingConfig?.enabled || (settings.billingConfig?.certPem && settings.billingConfig.certPem.trim().length > 0);
+
+        return (
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 text-white rounded-2xl p-5 shadow-lg space-y-4 font-sans">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-700/60 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-xl text-lg font-bold">
+                  📈
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-2">
+                    Nivel de Salud y Completitud del Comercio
+                    <span className="px-2 py-0.5 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-md text-[9px] font-mono font-bold">
+                      {health.score}% COMPLETADO
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Onboarding progresivo: completa tu perfil sin interrumpir tus ventas en el POS.
+                  </p>
+                </div>
+              </div>
+
+              <div className="w-full sm:w-48 bg-slate-950/80 rounded-full h-2.5 overflow-hidden border border-slate-700/60 p-0.5 shrink-0">
+                <div
+                  className="bg-gradient-to-r from-orange-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${health.score}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Checklist Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+              {/* Item 1: Logo */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('generales')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                  hasLogo 
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200 hover:bg-emerald-950/50' 
+                    : 'bg-slate-950/50 border-slate-700 text-slate-300 hover:border-orange-500/60 hover:bg-slate-900'
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">1. Identidad (+15%)</span>
+                  <span className="text-xs font-black block">{hasLogo ? '🟢 Logo Subido' : '⚪ Faltante: Subir Logo'}</span>
+                </div>
+                {!hasLogo && <span className="text-[10px] font-bold text-orange-400 underline">Cargar</span>}
+              </button>
+
+              {/* Item 2: Costos Fijos */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('costos')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                  hasFixedCosts 
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200 hover:bg-emerald-950/50' 
+                    : 'bg-slate-950/50 border-slate-700 text-slate-300 hover:border-orange-500/60 hover:bg-slate-900'
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">2. Finanzas (+20%)</span>
+                  <span className="text-xs font-black block">{hasFixedCosts ? '🟢 Gastos Cargados' : '⚪ Faltante: Costos Fijos'}</span>
+                </div>
+                {!hasFixedCosts && <span className="text-[10px] font-bold text-orange-400 underline">Cargar</span>}
+              </button>
+
+              {/* Item 3: Habilitaciones */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('compliance')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                  hasCompliance 
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200 hover:bg-emerald-950/50' 
+                    : 'bg-slate-950/50 border-slate-700 text-slate-300 hover:border-orange-500/60 hover:bg-slate-900'
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">3. Legal (+20%)</span>
+                  <span className="text-xs font-black block">{hasCompliance ? '🟢 Trámites/Matafuegos' : '⚪ Faltante: Legal/Controles'}</span>
+                </div>
+                {!hasCompliance && <span className="text-[10px] font-bold text-orange-400 underline">Cargar</span>}
+              </button>
+
+              {/* Item 4: ARCA */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('arca')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                  hasArca 
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200 hover:bg-emerald-950/50' 
+                    : 'bg-slate-950/50 border-slate-700 text-slate-300 hover:border-orange-500/60 hover:bg-slate-900'
+                }`}
+              >
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">4. Fiscal (+20%)</span>
+                  <span className="text-xs font-black block">{hasArca ? '🟢 Facturación ARCA' : '⚪ Faltante: ARCA / AFIP'}</span>
+                </div>
+                {!hasArca && <span className="text-[10px] font-bold text-orange-400 underline">Cargar</span>}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tabs sub-navigation */}
       <div className="flex border-b border-slate-200 gap-2 overflow-x-auto pb-0.5" id="settings-tabs-nav">
@@ -529,6 +849,21 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
         >
           <FileText className="w-4 h-4" />
           ARCA Configuración & Manual AFIP
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('compliance')}
+          className={`px-4 py-2.5 text-xs font-bold font-sans border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 relative ${
+            activeTab === 'compliance'
+              ? 'border-orange-500 text-orange-600 font-extrabold border-b-2'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          Habilitaciones & Cumplimiento
+          {complianceDocuments.some(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'EXPIRED') && (
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping absolute top-2 right-1" />
+          )}
         </button>
       </div>
 
@@ -1446,6 +1781,288 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
             </div>
           )}
 
+          {activeTab === 'compliance' && (
+            <div className="space-y-6">
+              {/* Main Regulatory Overview Card */}
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xxs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-emerald-50 text-emerald-700 rounded-xl border border-emerald-100">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                        Habilitaciones y Control Regulatorio
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md text-[9px] font-mono font-black uppercase">
+                          Soporte Argentina
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Administra vencimientos de habilitaciones municipales, matafuegos, fumigaciones y seguros.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle Notification Switch */}
+                  <label className="flex items-center gap-2.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-100 transition-all shrink-0 select-none">
+                    <Bell className={`w-4 h-4 ${complianceNotifyEnabled ? 'text-orange-500' : 'text-slate-400'}`} />
+                    <div className="text-left">
+                      <span className="text-[11px] font-bold text-slate-800 block leading-tight">
+                        Alertas Preventivas
+                      </span>
+                      <span className="text-[9px] text-slate-500 font-medium block">
+                        30 y 7 días antes
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={complianceNotifyEnabled}
+                      onChange={(e) => setComplianceNotifyEnabled(e.target.checked)}
+                      className="w-4 h-4 text-orange-500 rounded border-slate-300 focus:ring-orange-500 cursor-pointer ml-1"
+                    />
+                  </label>
+                </div>
+
+                {/* Summary Metrics Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Trámites</span>
+                    <span className="text-lg font-black text-slate-800 font-mono mt-0.5 block">{complianceDocuments.length}</span>
+                  </div>
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">🟢 Vigentes</span>
+                    <span className="text-lg font-black text-emerald-800 font-mono mt-0.5 block">
+                      {complianceDocuments.filter(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'ACTIVE').length}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">🟡 Próximos</span>
+                    <span className="text-lg font-black text-amber-900 font-mono mt-0.5 block">
+                      {complianceDocuments.filter(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'WARNING').length}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-red-50/70 border border-red-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-red-700 uppercase tracking-wider block">🔴 Vencidos</span>
+                    <span className="text-lg font-black text-red-800 font-mono mt-0.5 block">
+                      {complianceDocuments.filter(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'EXPIRED').length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Presets Quick Addition Toolbar */}
+                <div className="space-y-2 pt-1">
+                  <span className="text-[11px] font-bold text-slate-700 block">
+                    ⚡ Registrar rápidamente trámite habitual en Argentina:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ARGENTINA_COMPLIANCE_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleOpenNewDocModal(preset.label, preset.notifyDays)}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-orange-50 hover:border-orange-300 text-slate-700 hover:text-orange-800 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1 font-sans"
+                      >
+                        <Plus className="w-3 h-3 text-orange-500" />
+                        <span>{preset.label.split(' ')[0]} {preset.label.split(' ').slice(1, 3).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Search & Filter Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={complianceSearch}
+                      onChange={(e) => setComplianceSearch(e.target.value)}
+                      placeholder="Buscar por trámite o N°..."
+                      className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setComplianceStatusFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        complianceStatusFilter === 'ALL'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Todos ({complianceDocuments.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComplianceStatusFilter('EXPIRED')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        complianceStatusFilter === 'EXPIRED'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-red-50 text-red-700 hover:bg-red-100'
+                      }`}
+                    >
+                      🔴 Vencidos ({complianceDocuments.filter(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'EXPIRED').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComplianceStatusFilter('WARNING')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        complianceStatusFilter === 'WARNING'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+                      }`}
+                    >
+                      🟡 Próximos ({complianceDocuments.filter(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'WARNING').length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComplianceStatusFilter('ACTIVE')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        complianceStatusFilter === 'ACTIVE'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                      }`}
+                    >
+                      🟢 Vigentes ({complianceDocuments.filter(d => calculateDocumentStatus(d.expirationDate, d.notifyBeforeDays).status === 'ACTIVE').length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Main Documents Table / List */}
+                <div className="space-y-3">
+                  {(() => {
+                    const filteredDocs = complianceDocuments.filter(doc => {
+                      const st = calculateDocumentStatus(doc.expirationDate, doc.notifyBeforeDays);
+                      if (complianceStatusFilter !== 'ALL' && st.status !== complianceStatusFilter) return false;
+                      if (complianceSearch.trim()) {
+                        const q = complianceSearch.toLowerCase();
+                        const matchType = doc.documentType.toLowerCase().includes(q);
+                        const matchNum = (doc.certificateNumber || '').toLowerCase().includes(q);
+                        const matchNotes = (doc.notes || '').toLowerCase().includes(q);
+                        if (!matchType && !matchNum && !matchNotes) return false;
+                      }
+                      return true;
+                    });
+
+                    if (filteredDocs.length === 0) {
+                      return (
+                        <div className="p-8 text-center bg-slate-50 border border-slate-200 border-dashed rounded-2xl space-y-3">
+                          <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto" />
+                          <p className="text-xs font-bold text-slate-600">
+                            No hay certificados o trámites registrados en esta categoría.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenNewDocModal()}
+                            className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black text-xs rounded-xl transition-all cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Agregar Primer Documento
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-2.5">
+                        {filteredDocs.map((doc) => {
+                          const statusInfo = calculateDocumentStatus(doc.expirationDate, doc.notifyBeforeDays);
+
+                          return (
+                            <div
+                              key={doc.id}
+                              className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                                statusInfo.status === 'EXPIRED'
+                                  ? 'bg-red-50/50 border-red-200'
+                                  : statusInfo.status === 'WARNING'
+                                  ? 'bg-amber-50/40 border-amber-200'
+                                  : 'bg-white border-slate-200'
+                              }`}
+                            >
+                              <div className="space-y-1.5 max-w-lg">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] border ${statusInfo.badgeClass}`}>
+                                    {statusInfo.label}
+                                  </span>
+                                  <h4 className="text-xs font-black text-slate-900 font-sans">
+                                    {doc.documentType}
+                                  </h4>
+                                </div>
+
+                                {doc.certificateNumber && (
+                                  <p className="text-[11px] font-mono font-bold text-slate-700">
+                                    N° Certificado / Póliza: <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-900">{doc.certificateNumber}</span>
+                                  </p>
+                                )}
+
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                                  {doc.issueDate && (
+                                    <span>Emisión: <strong className="text-slate-800">{doc.issueDate}</strong></span>
+                                  )}
+                                  <span>Vencimiento: <strong className="text-slate-900">{doc.expirationDate}</strong></span>
+                                  <span>Alerta: <strong>{doc.notifyBeforeDays || 30} días antes</strong></span>
+                                </div>
+
+                                {doc.notes && (
+                                  <p className="text-[10.5px] text-slate-600 bg-slate-50/80 p-2 rounded-xl border border-slate-100 italic">
+                                    "{doc.notes}"
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Action buttons for document */}
+                              <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickRenew(doc, 1)}
+                                  title="Renovar por 1 año"
+                                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[11px] font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-xs"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  Renovar (1 año)
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditDocModal(doc)}
+                                  className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                                  title="Editar Documento"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDoc(doc.id)}
+                                  className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                                  title="Eliminar Registro"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Add new button */}
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenNewDocModal()}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-orange-400" />
+                    Cargar Nuevo Trámite / Certificado
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
@@ -1663,6 +2280,133 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail 
           </div>
         </div>
       </div>
+
+      {/* COMPLIANCE DOCUMENT ADD / EDIT MODAL */}
+      {isComplianceModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl text-left animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2 font-sans">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                {editingDocId ? 'Editar Certificado / Trámite' : 'Registrar Nuevo Documento Regulatorio'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsComplianceModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 font-bold text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDoc} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Tipo de Documento / Habilitación *
+                </label>
+                <select
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-hidden cursor-pointer"
+                  required
+                >
+                  {ARGENTINA_COMPLIANCE_PRESETS.map((p, idx) => (
+                    <option key={idx} value={p.label}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">
+                  N° de Certificado, Expediente o Póliza
+                </label>
+                <input
+                  type="text"
+                  value={docCertNumber}
+                  onChange={(e) => setDocCertNumber(e.target.value)}
+                  placeholder="Ej. HAB-SALTA-2025-0048 o MAT-8841"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold text-slate-800 focus:bg-white focus:outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Fecha de Emisión
+                  </label>
+                  <input
+                    type="date"
+                    value={docIssueDate}
+                    onChange={(e) => setDocIssueDate(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Fecha de Vencimiento *
+                  </label>
+                  <input
+                    type="date"
+                    value={docExpirationDate}
+                    onChange={(e) => setDocExpirationDate(e.target.value)}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 border-orange-300 focus:bg-white focus:outline-hidden"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Anticipación para Notificación (Días antes)
+                </label>
+                <select
+                  value={docNotifyDays}
+                  onChange={(e) => setDocNotifyDays(Number(e.target.value))}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden cursor-pointer"
+                >
+                  <option value={7}>7 Días antes (Urgente)</option>
+                  <option value={15}>15 Días antes</option>
+                  <option value={30}>30 Días antes (Recomendado)</option>
+                  <option value={60}>60 Días antes (Para habilitaciones complejas)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 block">
+                  Observaciones / Notas de Inspección
+                </label>
+                <textarea
+                  value={docNotes}
+                  onChange={(e) => setDocNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Ej. Ubicación de oblea, gestor a cargo, fono de contacto de fumigadora..."
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-sans text-slate-800 focus:bg-white focus:outline-hidden"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsComplianceModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  Guardar Trámite
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
