@@ -58,6 +58,8 @@ export default function Employees({
   
   const [activeTab, setActiveTab] = useState<'roster' | 'shifts'>('roster');
   const [showRolesGuide, setShowRolesGuide] = useState(false);
+  
+  const displayStoreCode = storeSettings?.storeCode || storeSettings?.email || 'M24-TIENDA';
   const [isConsolidating, setIsConsolidating] = useState(false);
   
   // Modals controller
@@ -1484,6 +1486,10 @@ export default function Employees({
               {/* Info Box */}
               <div className="mt-4 w-full bg-slate-950/65 border border-slate-800/85 rounded-xl p-3 space-y-1.5">
                 <div className="flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400 font-medium font-sans">ID Único de Tienda:</span>
+                  <span className="font-mono font-black text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded select-all">{displayStoreCode}</span>
+                </div>
+                <div className="flex justify-between items-center text-[11px]">
                   <span className="text-slate-400 font-medium font-sans">Nombre de Usuario:</span>
                   <span className="font-mono font-bold text-slate-100 bg-white/5 px-2 py-0.5 rounded select-all">{justCreatedEmployee.username}</span>
                 </div>
@@ -1531,12 +1537,14 @@ export default function Employees({
                   const waMessage = `*MAX24 - TARJETA DE ACCESO DE EMPLEADO*%0A%0A` +
                     `Hola *${encodeURIComponent(justCreatedEmployee.name)}*,%0A` +
                     `Te damos la bienvenida al equipo. Aquí tienes tus credenciales para ingresar al sistema de la tienda:%0A%0A` +
+                    `🔑 *ID Único de Tienda:* ${encodeURIComponent(displayStoreCode)}%0A` +
                     `• *Usuario:* ${encodeURIComponent(justCreatedEmployee.username)}%0A` +
                     `• *Contraseña:* ${encodeURIComponent(justCreatedEmployee.password)}%0A` +
                     `• *Rol asignado:* ${encodeURIComponent(justCreatedEmployee.role)}%0A` +
                     `• *Turno:* ${encodeURIComponent(justCreatedEmployee.shift)}%0A` +
                     `• *Pago por Hora:* $${justCreatedEmployee.hourlyRate || 1500}/h%0A%0A` +
-                    `🔗 *Ingresar aquí:* ${encodeURIComponent(originUrl)}%0A%0A` +
+                    `🔗 *Ingresar aquí:* ${encodeURIComponent(originUrl)}%0A` +
+                    `_(Elige "Cajero/Empleado" e ingresa el ID de Tienda arriba)_%0A%0A` +
                     `_¡Buen turno de trabajo!_`;
                     
                   const waUrl = cleanPhone 

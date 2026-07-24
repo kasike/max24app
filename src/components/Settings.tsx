@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Building2, 
   MapPin, 
@@ -33,7 +33,8 @@ import {
   Filter,
   Search,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  KeyRound
 } from 'lucide-react';
 import { StoreSettings, ComplianceDocument } from '../types';
 import { calculateStoreHealthScore } from '../utils/storeHealth';
@@ -138,7 +139,14 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
   const [city, setCity] = useState(settings.city || 'Belgrano');
   
   // Custom store search code & optional night pricing surcharge
-  const [storeCode, setStoreCode] = useState(settings.storeCode || '');
+  const defaultDerivedCode = useMemo(() => {
+    if (settings.storeCode) return settings.storeCode;
+    const source = settings.email || currentUserEmail || settings.name || '';
+    const prefix = source.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    return prefix ? `M24-${prefix}` : 'M24-TIENDA';
+  }, [settings.storeCode, settings.email, currentUserEmail, settings.name]);
+
+  const [storeCode, setStoreCode] = useState(settings.storeCode || defaultDerivedCode);
   const [bankAlias, setBankAlias] = useState(settings.bankAlias || '');
   const [nightSurchargeActive, setNightSurchargeActive] = useState(settings.nightSurchargeActive || false);
   const [nightSurchargePercent, setNightSurchargePercent] = useState(settings.nightSurchargePercent || 10);
@@ -341,6 +349,36 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
     setDetailedHours(updated);
     const updatedSummary = generateScheduleSummary(updated);
     setSchedule(updatedSummary);
+  };
+
+  const handleCopyDayScheduleToAll = (sourceIdx: number) => {
+    const source = detailedHours[sourceIdx];
+    const updated = detailedHours.map(h => ({
+      ...h,
+      isOpen: source.isOpen,
+      is24h: source.is24h,
+      openTime: source.openTime,
+      closeTime: source.closeTime
+    }));
+    setDetailedHours(updated);
+    setSchedule(generateScheduleSummary(updated));
+  };
+
+  const handleApplyPresetToAll = (openTime: string, closeTime: string, is24h: boolean = false) => {
+    const updated = detailedHours.map((h, idx) => {
+      if (idx === 6 && !is24h) {
+        return { ...h, isOpen: false, is24h: false };
+      }
+      return {
+        ...h,
+        isOpen: true,
+        is24h,
+        openTime: is24h ? '00:00' : openTime,
+        closeTime: is24h ? '23:59' : closeTime
+      };
+    });
+    setDetailedHours(updated);
+    setSchedule(generateScheduleSummary(updated));
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1049,29 +1087,73 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
               </div>
 
               {/* Unique Store Code Search input */}
-              <div className="space-y-1.5">
-                <label htmlFor="input-store-code" className="text-xs font-semibold text-slate-700 block">
-                  Código Único de Búsqueda (Buscador General)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-indigo-500">
-                    <Sparkles className="w-4 h-4" />
-                  </span>
-                  <input
-                    type="text"
-                    id="input-store-code"
-                    value={storeCode}
-                    onChange={(e) => {
-                      setStoreCode(e.target.value.toUpperCase().replace(/[^a-zA-Z0-9-]/g, ''));
-                      if (codeError) setCodeError('');
-                    }}
-                    className={`w-full pl-9 pr-4 py-2 bg-slate-50 border ${codeError ? 'border-rose-350 focus:border-rose-500 focus:ring-rose-500/10' : 'border-slate-250 focus:border-orange-500 focus:ring-orange-500/10'} rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:ring-2 transition-all`}
-                    placeholder="Ej. M24-BELGRANO"
-                  />
+              <div className="md:col-span-2 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-2 border-orange-300/80 rounded-2xl p-4 space-y-3 shadow-xs relative">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-orange-200/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-orange-500 text-white rounded-xl shadow-xs">
+                      <KeyRound className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-xs font-black text-slate-900 tracking-tight">
+                          ID Único de Tienda / Código para Empleados
+                        </h4>
+                        <span className="px-2 py-0.5 bg-orange-500 text-white rounded-md text-[9px] font-mono font-black uppercase">
+                          Clave de Acceso POS
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        Este ID identifica a tu negocio. Tus empleados deberán ingresarlo en la pantalla de inicio de sesión de Cajero/Empleado.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[9.5px] text-slate-400 leading-none">Código alfanumérico que usarán los clientes generales para encontrarte.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                  <div className="md:col-span-2 space-y-1">
+                    <label htmlFor="input-store-code" className="text-[11px] font-bold text-slate-700 block">
+                      Código ID Asignado a tu Comercio
+                    </label>
+                    <div className="relative flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-2.5 text-orange-500">
+                          <Sparkles className="w-4 h-4" />
+                        </span>
+                        <input
+                          type="text"
+                          id="input-store-code"
+                          value={storeCode}
+                          onChange={(e) => {
+                            setStoreCode(e.target.value.toUpperCase().replace(/[^a-zA-Z0-9-]/g, ''));
+                            if (codeError) setCodeError('');
+                          }}
+                          className={`w-full pl-9 pr-4 py-2 bg-white border-2 ${codeError ? 'border-rose-400 focus:border-rose-500' : 'border-orange-250 focus:border-orange-500'} rounded-xl text-xs font-mono font-black text-slate-900 tracking-wider shadow-xs focus:outline-hidden transition-all`}
+                          placeholder="Ej. M24-MIKA"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(storeCode);
+                          alert(`ID de Tienda "${storeCode}" copiado al portapapeles. Compartilo con tus empleados para que puedan ingresar.`);
+                        }}
+                        className="px-3 py-2 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-[11px] font-black rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copiar ID
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10.5px] text-slate-600 leading-tight bg-white/90 p-2.5 rounded-xl border border-orange-200/60 shadow-2xs">
+                      🔑 <strong>Para el ingreso de tus empleados:</strong> Deciles que elijan <em>"Cajero/Empleado"</em> en la pantalla de login e ingresen este ID: <span className="font-mono font-black text-orange-600">{storeCode || publicEmail}</span> (o tu correo {publicEmail}).
+                    </div>
+                  </div>
+                </div>
+
                 {codeError && (
-                  <p className="text-[10.5px] text-rose-500 font-semibold mt-1 flex items-center gap-1 leading-tight">
+                  <p className="text-[10.5px] text-rose-600 font-bold flex items-center gap-1 leading-tight">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {codeError}
                   </p>
@@ -1312,80 +1394,186 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
               <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Configuración por Día</span>
             </h3>
 
-            {/* Quick alert reminding user about 24h capacity */}
+            {/* Quick alert reminding user about custom schedule input */}
             <div className="bg-orange-50/50 border border-orange-200/50 p-3 rounded-xl flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
               <p className="text-[11px] text-slate-600 leading-normal">
-                Configura cada día de la semana. Puedes alternar entre <span className="font-bold text-orange-950">24 hs</span> para tiendas abiertas todo el día (como BigMAX), o configurar un horario específico de apertura y cierre.
+                Configura los horarios exactos de apertura y cierre para cada día, o elegí <span className="font-bold text-orange-950">24 hs</span> o <span className="font-bold text-slate-800">Cerrado</span>. Podes escribir el horario manualmente que prefieras.
               </p>
+            </div>
+
+            {/* Quick Presets Bar */}
+            <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 font-mono">
+                  ⚡ Plantillas Rápidas de Horarios:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyDayScheduleToAll(0)}
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-black rounded-lg transition-all cursor-pointer shadow-2xs flex items-center gap-1 shrink-0"
+                  title="Aplica la configuración del Lunes a todos los demás días"
+                >
+                  <Copy className="w-3 h-3 text-orange-500" />
+                  Copiar Lunes a Todos los Días
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetToAll('08:00', '20:00')}
+                  className="px-2.5 py-1 bg-white hover:bg-orange-50 hover:border-orange-300 border border-slate-200 text-slate-700 text-[10.5px] font-bold rounded-lg transition-all cursor-pointer shadow-2xs"
+                >
+                  08:00 a 20:00 hs (Lun a Sáb)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetToAll('09:00', '21:00')}
+                  className="px-2.5 py-1 bg-white hover:bg-orange-50 hover:border-orange-300 border border-slate-200 text-slate-700 text-[10.5px] font-bold rounded-lg transition-all cursor-pointer shadow-2xs"
+                >
+                  09:00 a 21:00 hs (Lun a Sáb)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetToAll('08:00', '22:00')}
+                  className="px-2.5 py-1 bg-white hover:bg-orange-50 hover:border-orange-300 border border-slate-200 text-slate-700 text-[10.5px] font-bold rounded-lg transition-all cursor-pointer shadow-2xs"
+                >
+                  08:00 a 22:00 hs (Lun a Sáb)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetToAll('00:00', '23:59', true)}
+                  className="px-2.5 py-1 bg-orange-500 hover:bg-orange-600 text-white text-[10.5px] font-black rounded-lg transition-all cursor-pointer shadow-2xs flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Abierto 24hs Todos los Días
+                </button>
+              </div>
             </div>
 
             {/* List of days with interactive settings */}
             <div className="divide-y divide-slate-100">
               {detailedHours.map((h, i) => (
-                <div key={i} className="py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-                  <div className="w-24 shrink-0 flex items-center gap-2">
-                    <span className="font-bold text-slate-800">{h.day}</span>
+                <div key={i} className="py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+                  <div className="w-28 shrink-0 flex items-center gap-2">
+                    <span className="font-extrabold text-slate-800 text-xs">{h.day}</span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-4">
-                    {/* Status Toggle switch (Open / Closed) */}
-                    <button
-                      type="button"
-                      onClick={() => handleHourChange(i, 'isOpen', !h.isOpen)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                        h.isOpen 
-                          ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30' 
-                          : 'bg-slate-100 text-slate-400 border-slate-200'
-                      }`}
-                    >
-                      {h.isOpen ? '✓ Abierto' : '✗ Cerrado'}
-                    </button>
+                  <div className="flex flex-wrap items-center gap-3 flex-1 justify-start lg:justify-end">
+                    {/* Mode Selector Segmented Controls */}
+                    <div className="inline-flex p-0.5 bg-slate-100 border border-slate-200 rounded-xl shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleHourChange(i, 'isOpen', false);
+                          handleHourChange(i, 'is24h', false);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                          !h.isOpen 
+                            ? 'bg-rose-500 text-white shadow-xs' 
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        ✗ Cerrado
+                      </button>
 
-                    {h.isOpen && (
-                      <>
-                        {/* 24 hs Toggle button */}
-                        <button
-                          type="button"
-                          onClick={() => handleHourChange(i, 'is24h', !h.is24h)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
-                            h.is24h 
-                              ? 'bg-orange-500/10 text-orange-700 border-orange-500/30 font-black' 
-                              : 'bg-slate-50 text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          {h.is24h ? '★ Abierto 24hs' : 'Horas específicas'}
-                        </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleHourChange(i, 'isOpen', true);
+                          handleHourChange(i, 'is24h', true);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-black transition-all cursor-pointer ${
+                          h.isOpen && h.is24h 
+                            ? 'bg-orange-500 text-white shadow-xs' 
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        ★ 24 Horas
+                      </button>
 
-                        {/* Custom hours pickers */}
-                        {!h.is24h && (
-                          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                            <span>Desde:</span>
-                            <input
-                              type="time"
-                              value={h.openTime}
-                              onChange={(e) => handleHourChange(i, 'openTime', e.target.value)}
-                              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:outline-hidden"
-                            />
-                            <span>Hasta:</span>
-                            <input
-                              type="time"
-                              value={h.closeTime}
-                              onChange={(e) => handleHourChange(i, 'closeTime', e.target.value)}
-                              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:outline-hidden"
-                            />
-                          </div>
-                        )}
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleHourChange(i, 'isOpen', true);
+                          handleHourChange(i, 'is24h', false);
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                          h.isOpen && !h.is24h 
+                            ? 'bg-slate-900 text-white shadow-xs' 
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        🕒 Horario Personalizado
+                      </button>
+                    </div>
+
+                    {/* Manual time pickers for custom hours */}
+                    {h.isOpen && !h.is24h && (
+                      <div className="flex flex-wrap items-center gap-2 bg-amber-50/60 border border-amber-200/80 p-1.5 px-3 rounded-xl">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                          <span>Apertura:</span>
+                          <input
+                            type="time"
+                            value={h.openTime || '08:00'}
+                            onChange={(e) => handleHourChange(i, 'openTime', e.target.value)}
+                            className="px-2 py-1 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 shadow-2xs"
+                          />
+                        </div>
+                        <span className="text-slate-400 font-bold">-</span>
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                          <span>Cierre:</span>
+                          <input
+                            type="time"
+                            value={h.closeTime || '20:00'}
+                            onChange={(e) => handleHourChange(i, 'closeTime', e.target.value)}
+                            className="px-2 py-1 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 shadow-2xs"
+                          />
+                        </div>
+
+                        {/* Fast Presets per day */}
+                        <div className="flex items-center gap-1 ml-1 border-l border-amber-200/80 pl-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleHourChange(i, 'openTime', '08:00');
+                              handleHourChange(i, 'closeTime', '20:00');
+                            }}
+                            className="px-1.5 py-0.5 bg-white hover:bg-orange-100 text-[9.5px] font-bold text-slate-700 border border-amber-200 rounded cursor-pointer"
+                          >
+                            08-20
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleHourChange(i, 'openTime', '09:00');
+                              handleHourChange(i, 'closeTime', '21:00');
+                            }}
+                            className="px-1.5 py-0.5 bg-white hover:bg-orange-100 text-[9.5px] font-bold text-slate-700 border border-amber-200 rounded cursor-pointer"
+                          >
+                            09-21
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleHourChange(i, 'openTime', '08:00');
+                              handleHourChange(i, 'closeTime', '22:00');
+                            }}
+                            className="px-1.5 py-0.5 bg-white hover:bg-orange-100 text-[9.5px] font-bold text-slate-700 border border-amber-200 rounded cursor-pointer"
+                          >
+                            08-22
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Generated schedule string display (Read-only representation) */}
+            {/* Generated schedule string display */}
             <div className="pt-3 border-t border-slate-150 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Resumen Automático para Recibos</span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Resumen Automático para Recibos y Clientes</span>
               <div className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-mono font-bold text-[10px]">
                 {schedule}
               </div>
@@ -2200,42 +2388,44 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
             </div>
           </div>
 
-          {/* DNDA Intellectual Property Card */}
-          <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-indigo-900/40 rounded-3xl p-5 space-y-4 shadow-md text-white relative overflow-hidden" id="settings-dnda-card">
-            {/* Ambient subtle light shine */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-2xl rounded-full" />
-            
-            <div className="flex items-center gap-2.5 z-10 relative">
-              <span className="p-2 bg-indigo-500/15 text-emerald-400 border border-indigo-500/25 rounded-xl shrink-0 font-bold">
-                <FileText className="w-4 h-4" />
-              </span>
-              <div className="text-left font-sans">
-                <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded text-[8.5px] font-mono font-black tracking-widest uppercase">DNDA ARGENTINA</span>
-                <h4 className="text-xs font-extrabold text-white mt-0.5">Propiedad Intelectual</h4>
+          {/* DNDA Intellectual Property Card (Only visible to Master Admin) */}
+          {(currentUserEmail === 'pezziniarg@gmail.com' || settings?.email === 'pezziniarg@gmail.com') && (
+            <div className="bg-gradient-to-br from-slate-900 to-indigo-950 border border-indigo-900/40 rounded-3xl p-5 space-y-4 shadow-md text-white relative overflow-hidden" id="settings-dnda-card">
+              {/* Ambient subtle light shine */}
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 blur-2xl rounded-full" />
+              
+              <div className="flex items-center gap-2.5 z-10 relative">
+                <span className="p-2 bg-indigo-500/15 text-emerald-400 border border-indigo-500/25 rounded-xl shrink-0 font-bold">
+                  <FileText className="w-4 h-4" />
+                </span>
+                <div className="text-left font-sans">
+                  <span className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded text-[8.5px] font-mono font-black tracking-widest uppercase">DNDA ARGENTINA</span>
+                  <h4 className="text-xs font-extrabold text-white mt-0.5">Propiedad Intelectual</h4>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-300 leading-relaxed text-left z-10 relative font-sans">
+                Protege el código fuente de tu software <strong>MAX24</strong> contra copias y plagios. La Dirección Nacional del Derecho de Autor (DNDA) conserva el resguardo en custodia 100% segura y confidencial.
+              </p>
+
+              <div className="bg-slate-950/50 p-3.5 border border-indigo-950 rounded-2xl space-y-2 z-10 relative text-left">
+                <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
+                  <strong>Autor Titular:</strong> Luis Armando Pezzini<br />
+                  <strong>CUIT del Autor:</strong> 20-28886024-7
+                </p>
+                
+                <a
+                  href="/api/dnda-pdf"
+                  download="MAX24_Memoria_Tecnica_DNDA.pdf"
+                  target="_blank"
+                  className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10.5px] font-black tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  DESCARGAR REPORTE TÉCNICO (PDF)
+                </a>
               </div>
             </div>
-
-            <p className="text-[11px] text-slate-300 leading-relaxed text-left z-10 relative font-sans">
-              Protege el código fuente de tu software <strong>MAX24</strong> contra copias y plagios. La Dirección Nacional del Derecho de Autor (DNDA) conserva el resguardo en custodia 100% segura y confidencial.
-            </p>
-
-            <div className="bg-slate-950/50 p-3.5 border border-indigo-950 rounded-2xl space-y-2 z-10 relative text-left">
-              <p className="text-[10px] text-slate-400 font-sans leading-relaxed">
-                <strong>Autor Titular:</strong> Luis Armando Pezzini<br />
-                <strong>CUIT del Autor:</strong> 20-28886024-7
-              </p>
-              
-              <a
-                href="/api/dnda-pdf"
-                download="MAX24_Memoria_Tecnica_DNDA.pdf"
-                target="_blank"
-                className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10.5px] font-black tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20"
-              >
-                <Download className="w-3.5 h-3.5" />
-                DESCARGAR REPORTE TÉCNICO (PDF)
-              </a>
-            </div>
-          </div>
+          )}
 
           {/* SaaS Support Card */}
           <div className="bg-slate-50 border border-slate-200 rounded-3xl p-5 space-y-4 shadow-xxs">

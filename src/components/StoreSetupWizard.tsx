@@ -573,11 +573,16 @@ export default function StoreSetupWizard({ initialSettings, onComplete, currentU
                   </button>
                 </div>
 
-                <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-2 bg-white p-2.5 rounded-xl border border-slate-200/50">
-                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>
-                    <strong>Resumen del Horario:</strong> {generateScheduleSummaryLocal()}
-                  </span>
+                <div className="text-[11px] text-slate-500 flex flex-col gap-1 mt-2 bg-white p-2.5 rounded-xl border border-slate-200/50">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                    <span>
+                      <strong>Resumen del Horario:</strong> {generateScheduleSummaryLocal()}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 pl-5">
+                    💡 <em>Podrás personalizar horarios específicos día por día (ej. 09:00 a 21:00) en el menú Ajustes → Tienda cuando quieras.</em>
+                  </p>
                 </div>
               </div>
             </div>

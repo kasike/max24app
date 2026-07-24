@@ -7,7 +7,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ---
 
-## [Unreleased] - 2026-07-23
+## [Unreleased] - 2026-07-24
+
+### Corregido
+- **Ocultamiento de Tarjeta de Propiedad Intelectual (DNDA) en Comercios Estándar (`Settings.tsx`)**: Se condicionó la visualización del bloque DNDA exclusivamente al usuario Master Admin (`pezziniarg@gmail.com`), asegurando que clientes nuevos registrados no vean este certificado privado en la sección de Ajustes de su tienda.
+- **Configuración de Horarios de Atención Personalizados Día por Día (`Settings.tsx` & `StoreSetupWizard.tsx`)**: Se implementó una interfaz interactiva con controles por segmentos (**✗ Cerrado**, **★ 24 Horas** y **🕒 Horario Personalizado**) con entradas libres de tipo hora `<input type="time">` para ingresar manualmente cualquier rango de apertura y cierre (ej. 08:30 a 22:00 hs), eliminando la limitación previa. Incluye plantillas rápidas (08-20, 09-21, 08-22, 24hs) y función en 1 clic de "Copiar Lunes a Todos los Días".
+
+### Añadido
+- **Módulo Destacado de ID Único de Tienda para Acceso de Empleados (`Settings.tsx` & `Employees.tsx`)**: Se rediseñó la sección de Código de Tienda en la pestaña de Ajustes con un banner visual destacado en degradado naranja, botón **"Copiar ID"** en 1 clic y explicaciones paso a paso de cómo los empleados deben ingresar al POS. Además, se sumó la inclusión automática del ID Único de Tienda en las tarjetas de bienvenida y mensajes de WhatsApp enviados a los nuevos empleados al registrarlos.
+
+---
+
+## [1.2.1] - 2026-07-23
 
 ### Corregido
 - **Rediseño Integral del Módulo "Reportes / Análisis" (X-Report & Z-Report History)**: Se transformó la sección de estadísticas para situar el "Resumen del Día" (X-Report en tiempo real) y el "Historial de Turnos y Arqueos de Caja" (Z-Reports) en primer plano prioritario. Incluye:
