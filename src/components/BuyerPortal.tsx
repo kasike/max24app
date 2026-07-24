@@ -1738,13 +1738,14 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block font-sans">E-mail de Ingreso</label>
+                  <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block font-sans">E-mail de Ingreso *</label>
                   <input
                     type="email"
-                    disabled
+                    required
                     value={profileEmail}
-                    className="w-full bg-slate-100 border border-slate-200 p-2.5 rounded-xl text-xs font-mono text-slate-500 cursor-not-allowed opacity-75"
-                    title="El email es la clave única de tu cuenta de MAX24."
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:border-indigo-500 focus:bg-white transition-all focus:ring-1 focus:ring-indigo-500/10"
+                    placeholder="tu-correo@gmail.com"
                   />
                 </div>
 

@@ -10,6 +10,8 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-23
 
 ### Añadido
+- **Integración Real de Google OAuth en Portal de Compradores**: Implementación de `GoogleAuthProvider` y `signInWithPopup` de Firebase Auth para solicitar autorización directa a Google y sincronizar el correo de Gmail real y nombre del usuario.
+- **Edición de Correo en Perfil de Comprador**: Habilitación del campo de correo electrónico de ingreso en el panel de perfil del comprador para permitir actualización directa en Firestore.
 - **Rediseño Arquitectónico de Pantalla de Login por Portales de Rol**: Separación limpia en 3 portales dedicados en `/src/components/Login.tsx`:
   1. 🛒 **Portal Compradores/Clientes**: Autenticación rápida SSO con logos vectoriales oficiales de Google y Facebook, ingreso con email/contraseña y botón destacado **"🗺️ Explorar Mapa de Comercios (Sin Registro)"** con activación de geolocalización GPS.
   2. 🏪 **Portal Comercio & POS**: Sub-conmutador entre Dueño/Administrador y Cajero/Empleado con ID de Tienda obligatorio, ingreso por PIN de 4 dígitos y casilla de fichaje de turno de trabajo (`⏱️ Reloj Checador`).

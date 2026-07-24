@@ -46,52 +46,136 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
   const handleSocialLogin = async (provider: 'Google' | 'Facebook' | 'Invitado') => {
     setSocialLoading(provider);
-    
-    // Smooth delay for simulated handshake
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setLoginError('');
 
-    let email = '';
-    let name = '';
-    let loginUsername = '';
-    
-    if (provider === 'Google') {
-      const rand = Math.floor(100 + Math.random() * 900);
-      email = `comprador.${rand}@gmail.com`;
-      name = `Cliente Gmail #${rand}`;
-      loginUsername = `gmail_buyer_${rand}`;
-    } else if (provider === 'Facebook') {
-      const rand = Math.floor(100 + Math.random() * 900);
-      email = `fb.cliente.${rand}@facebook.com`;
-      name = `Cliente Facebook #${rand}`;
-      loginUsername = `fb_buyer_${rand}`;
-    } else {
-      const rand = Math.floor(100 + Math.random() * 900);
-      email = `invitando.${rand}@max24.com.ar`;
-      name = `Comprador General #${rand}`;
-      loginUsername = `general_buyer_${rand}`;
+    try {
+      if (provider === 'Google') {
+        const { GoogleAuthProvider, signInWithPopup } = await import('firebase/auth');
+        const { auth } = await import('../firebase');
+        const googleProvider = new GoogleAuthProvider();
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+
+        const email = (user.email || '').trim().toLowerCase();
+        const name = user.displayName || (email ? email.split('@')[0] : 'Cliente Google');
+        const loginUsername = email || `google_${user.uid}`;
+
+        const existing = employees.find(e => (e.email || '').trim().toLowerCase() === email);
+
+        const payload: Omit<Employee, 'id'> = {
+          name: existing?.name || name,
+          email: email,
+          username: existing?.username || loginUsername,
+          password: existing?.password || 'GoogleOAuthSSO',
+          role: 'Comprador',
+          status: 'Activo',
+          shift: 'Rotativo',
+          joinedDate: existing?.joinedDate || new Date().toISOString().split('T')[0],
+          phone: existing?.phone || user.phoneNumber || '+54 11 9988-7766'
+        };
+
+        if (!existing) {
+          onRegisterAdmin(payload);
+        }
+
+        const loggedUser: Employee = {
+          ...payload,
+          id: existing?.id || `emp-google-${user.uid}`
+        };
+
+        setSocialLoading(null);
+        onLoginSuccess(loggedUser);
+        return;
+      }
+
+      if (provider === 'Facebook') {
+        const { FacebookAuthProvider, signInWithPopup } = await import('firebase/auth');
+        const { auth } = await import('../firebase');
+        const facebookProvider = new FacebookAuthProvider();
+
+        const result = await signInWithPopup(auth, facebookProvider);
+        const user = result.user;
+
+        const email = (user.email || '').trim().toLowerCase() || `fb_${user.uid}@facebook.com`;
+        const name = user.displayName || 'Cliente Facebook';
+        const loginUsername = email;
+
+        const existing = employees.find(e => (e.email || '').trim().toLowerCase() === email);
+
+        const payload: Omit<Employee, 'id'> = {
+          name: existing?.name || name,
+          email: email,
+          username: existing?.username || loginUsername,
+          password: existing?.password || 'FacebookOAuthSSO',
+          role: 'Comprador',
+          status: 'Activo',
+          shift: 'Rotativo',
+          joinedDate: existing?.joinedDate || new Date().toISOString().split('T')[0],
+          phone: existing?.phone || user.phoneNumber || '+54 11 9988-7766'
+        };
+
+        if (!existing) {
+          onRegisterAdmin(payload);
+        }
+
+        const loggedUser: Employee = {
+          ...payload,
+          id: existing?.id || `emp-fb-${user.uid}`
+        };
+
+        setSocialLoading(null);
+        onLoginSuccess(loggedUser);
+        return;
+      }
+
+      if (provider === 'Invitado') {
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        const email = `invitado.${rand}@max24app.com`;
+        const name = `Comprador Invitado #${rand}`;
+        const loginUsername = `invitado_${rand}`;
+
+        const payload: Omit<Employee, 'id'> = {
+          name,
+          email,
+          username: loginUsername,
+          password: 'GuestModeHandshake',
+          role: 'Comprador',
+          status: 'Activo',
+          shift: 'Rotativo',
+          joinedDate: new Date().toISOString().split('T')[0],
+          phone: '+54 11 9988-7766'
+        };
+
+        onRegisterAdmin(payload);
+
+        const loggedUser: Employee = {
+          ...payload,
+          id: `emp-guest-${Date.now()}`
+        };
+
+        setSocialLoading(null);
+        onLoginSuccess(loggedUser);
+        return;
+      }
+    } catch (error: any) {
+      console.error(`Error en autenticación con ${provider}:`, error);
+      setSocialLoading(null);
+
+      const errorCode = error?.code || '';
+      if (errorCode === 'auth/popup-closed-by-user') {
+        setLoginError('Se cerró la ventana emergente antes de completar el inicio de sesión.');
+      } else if (errorCode === 'auth/popup-blocked') {
+        setLoginError('El navegador bloqueó la ventana emergente de Google. Por favor, permite las ventanas emergentes para este sitio.');
+      } else if (errorCode === 'auth/unauthorized-domain') {
+        setLoginError('Dominio no autorizado en Firebase Auth. Ingresa con tu correo y contraseña.');
+      } else if (errorCode === 'auth/operation-not-allowed' || errorCode === 'auth/configuration-not-found') {
+        setLoginError(`El acceso con ${provider} requiere habilitar el proveedor en la consola de Firebase. Puedes ingresar registrándote con tu correo.`);
+      } else {
+        setLoginError(`Error al conectar con ${provider}. Puedes ingresar o registrarte directamente con tu correo electrónico.`);
+      }
     }
-
-    const payload: Omit<Employee, 'id'> = {
-      name,
-      email,
-      username: loginUsername,
-      password: 'OAuthSimulatedHandshake',
-      role: 'Comprador',
-      status: 'Activo',
-      shift: 'Rotativo',
-      joinedDate: new Date().toISOString().split('T')[0],
-      phone: '+5 Argento ' + Math.floor(10000000 + Math.random() * 90000000)
-    };
-
-    onRegisterAdmin(payload);
-
-    const loggedUser: Employee = {
-      ...payload,
-      id: `emp-oauth-${Date.now()}`
-    };
-
-    setSocialLoading(null);
-    onLoginSuccess(loggedUser);
   };
   
   // Portal and Login Form States
