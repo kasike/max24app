@@ -268,6 +268,14 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   2. **Resolución de Precio en Servidor / Estado (`App.tsx`)**: Se actualizó `handleRegisterSale` para que extraiga prioritariamente `item.price` e `item.productName` cuando provengan de la calculadora rápida o productos dinámicos, garantizando el registro del precio exacto ingresado por el cajero (ej. `$50.370`).
   3. **Desglose Específico de Transferencias en Reportes (`Reports.tsx`)**: Se integró el rastreo y balance discriminado de `Transferencias` bancarias en las tarjetas de resumen y en los tickets Z-Report de arqueo de caja.
 
+### Error 31: Tecla '=' inactiva y falla en suma de montos combinados en la Calculadora Express (`POS.tsx`)
+* **Fallo:** La tecla `=` de la calculadora del POS no funcionaba al presionarla y al ingresar expresiones matemáticas complejas (ej. `120+50000+250`), solo se agregaba al carrito el monto de la primera cifra (`120`) ignorando el resto de los valores sumados.
+* **Causa:** La función memoizada de evaluación matemática `calcEvaluatedTotal` contenía una referencia a una función inexistente en JavaScript (`!isInfinite(result)`). Al evaluarse, JS arrojaba un `ReferenceError: isInfinite is not defined` que era capturado silenciosamente en el bloque `try-catch`, retornando un total evaluado de `$0`. Esto provocaba que al presionar `=` no se actualizara el resultado y al agregar al carrito se recurriera al fallback `parseFloat("120+50000+250")`, el cual parsea solo hasta el primer operador no numérico y retorna exclusivamente la primera cifra (`120`).
+* **Solución:**
+  1. **Corrección de Evaluación Matmática (`POS.tsx`)**: Se reemplazó la llamada inválida por la función estándar de ES6 `Number.isFinite(result)`, permitiendo que expresiones compuestas como `120 + 50000 + 250` se evalúen con total precisión devolviendo el total real sumado (`$50.370`).
+  2. **Habilitación de Tecla Igual (`=`)**: Se simplificó el manejador de la tecla `=` para que asigne directamente el total evaluado calculado (`calcEvaluatedTotal.toString()`) a la expresión en pantalla.
+  3. **Adición Exacta al Carrito**: Se garantizó que la función `handleAddQuickItemToCart` utilice directamente la suma evaluada real de todos los valores ingresados.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

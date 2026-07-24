@@ -10,6 +10,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Corregido
+- **Reparación de Evaluación de Sumas y Tecla '=' en Calculadora Express (`POS.tsx`)**:
+  1. Se eliminó la llamada errónea `!isInfinite(result)` en `calcEvaluatedTotal`, reemplazándola por `Number.isFinite(result)`. Esto solucionó un `ReferenceError` interno que provocaba que la evaluación matemática devolviera `$0`.
+  2. Se corrigió el problema por el cual al ingresar sumas múltiples (ej. `120+50000+250`), únicamente se agregaba el primer número (`120`) al carrito. Ahora se suma y calcula la totalidad de los valores agregados (ej. `$50.370`).
+  3. Se habilitó la respuesta de la tecla igual (`=`) en el teclado virtual de la calculadora para resolver y mostrar en pantalla el monto total antes de facturar.
 - **Sincronización de Ventas por Calculadora Express y Desglose por Transferencia en Reportes (`POS.tsx`, `App.tsx` & `Reports.tsx`)**:
   1. Se corrigió la pérdida de precio en ventas expresas/calculadora pasando `customProduct`, `productName` y `price` dentro de `itemsToRegister` desde `POS.tsx` hacia `handleRegisterSale` en `App.tsx`. Anteriormente, al mapearse únicamente `{ productId, quantity }` y no existir el ID dinámico (`quick-...`) en el catálogo general, la búsqueda del producto devolvía `undefined`, asignando precio `$0` y dejando la venta registrada en `$0`.
   2. Se actualizó `App.tsx` para que extraiga prioritariamente `item.price` e `item.productName` cuando provengan de ventas por calculadora, asegurando que el total de la venta (ej. `$50.370`) se registre e impacte correctamente en la base de datos de Firebase y en el estado global.

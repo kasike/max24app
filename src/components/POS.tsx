@@ -140,7 +140,7 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
       if (!sanitized.trim()) return 0;
 
       const result = new Function(`'use strict'; return (${sanitized});`)();
-      if (typeof result === 'number' && !isNaN(result) && !isInfinite(result)) {
+      if (typeof result === 'number' && !isNaN(result) && Number.isFinite(result)) {
         return Math.max(0, Math.round(result * 100) / 100);
       }
       return 0;
@@ -156,9 +156,7 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
     } else if (key === 'BACKSPACE') {
       setCalcExpression(prev => prev.slice(0, -1));
     } else if (key === '=') {
-      if (calcEvaluatedTotal > 0) {
-        setCalcExpression(calcEvaluatedTotal.toString());
-      }
+      setCalcExpression(calcEvaluatedTotal.toString());
     } else {
       setCalcExpression(prev => {
         const lastChar = prev.slice(-1);
