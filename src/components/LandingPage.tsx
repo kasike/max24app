@@ -45,7 +45,11 @@ import {
   DollarSign,
   Calendar,
   Menu,
-  X
+  X,
+  Download,
+  Share,
+  PlusSquare,
+  Monitor
 } from 'lucide-react';
 import { Employee } from '../types';
 import { doc, getDoc } from 'firebase/firestore';
@@ -884,6 +888,31 @@ export default function LandingPage({ onLoginClick, onStartDemoClick, employees,
             >
               Proveedores B2B
             </button>
+            {activeTab === 'home' ? (
+              <a 
+                href="#descargar-app" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-orange-500 transition-colors py-2 pl-3 lg:pl-0 text-left lg:text-center font-extrabold text-emerald-600 flex items-center gap-1.5"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                App Móvil PWA
+              </a>
+            ) : (
+              <button 
+                type="button"
+                onClick={() => {
+                  setActiveTab('home');
+                  setMobileMenuOpen(false);
+                  setTimeout(() => {
+                    document.getElementById('descargar-app')?.scrollIntoView({ behavior: 'smooth' });
+                  }, 150);
+                }}
+                className="hover:text-orange-500 transition-colors cursor-pointer py-2 pl-3 lg:pl-0 text-left lg:text-center text-emerald-600 font-extrabold flex items-center gap-1.5"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                App Móvil PWA
+              </button>
+            )}
             {activeTab === 'home' ? (
               <a 
                 href="#planes" 
@@ -2423,6 +2452,159 @@ export default function LandingPage({ onLoginClick, onStartDemoClick, employees,
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECCIÓN DESCARGAR APP PWA (APLICACIÓN MÓVIL PARA CELULARES) */}
+      <section id="descargar-app" className="py-20 px-6 max-w-7xl mx-auto w-full border-t border-slate-200 scroll-mt-20">
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 md:p-12 border border-slate-800 shadow-2xl relative overflow-hidden">
+          {/* Background Ambient Lights */}
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-orange-500/20 blur-[100px] rounded-full pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-500/20 blur-[100px] rounded-full pointer-events-none" />
+
+          {/* Header */}
+          <div className="text-center max-w-3xl mx-auto space-y-4 mb-12 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded-full text-xs font-black uppercase tracking-wider">
+              <Smartphone className="w-4 h-4 text-orange-400 animate-bounce" />
+              Aplicación Móvil PWA • Sin Tiendas de Apps
+            </div>
+            <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-tight">
+              Instalá la App de <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-amber-300 to-emerald-400">MAX24 en tu Celular</span>
+            </h2>
+            <p className="text-xs md:text-sm text-slate-300 leading-relaxed font-medium max-w-2xl mx-auto">
+              Llevá el control de tus ventas, stock y clientes a donde vayas. MAX24 es una <strong>PWA (Progressive Web App)</strong> de última generación: no ocupa espacio en tu memoria, no requiere descargas pesadas de Google Play o App Store y funciona de inmediato en tu teléfono.
+            </p>
+          </div>
+
+          {/* Core PWA Feature Highlights Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12 relative z-10 text-left">
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2 backdrop-blur-xs">
+              <div className="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center font-bold">
+                <Zap className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-black text-white">Instalación en 1 Clic</h3>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Sin registros en tiendas externas ni esperas. Abrís la web, tocás instalar y listo.
+              </p>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2 backdrop-blur-xs">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-black text-white">Súper Liviana (&lt; 5MB)</h3>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                No satura la memoria de tu celular. Ocupa 20 veces menos espacio que las apps tradicionales.
+              </p>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2 backdrop-blur-xs">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-black text-white">Siempre Actualizada</h3>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Recibís todas las mejoras y parches de seguridad de forma instantánea y automática.
+              </p>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 p-4 rounded-2xl space-y-2 backdrop-blur-xs">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-sm font-black text-white">Segura e Independiente</h3>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                Tus datos viajan encriptados de punto a punto con tecnología bancaria SSL de 256-bit.
+              </p>
+            </div>
+          </div>
+
+          {/* Detailed Platform Instructions Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10 text-left">
+            {/* Android instructions card */}
+            <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-2xl space-y-4 shadow-lg">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
+                <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                  <Smartphone className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest block">Google Android</span>
+                  <h3 className="text-base font-black text-white">¿Cómo instalar en Android?</h3>
+                  <p className="text-[10px] text-slate-400">Compatible con Chrome, Edge, Brave y Samsung Internet</p>
+                </div>
+              </div>
+
+              <ol className="space-y-3 text-xs text-slate-200">
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-emerald-500/30">1</span>
+                  <span>Abre <strong>max24app.com</strong> desde el navegador <strong>Google Chrome</strong> en tu celular.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-emerald-500/30">2</span>
+                  <span>Presiona el cartel flotante <strong>"Instalar App"</strong> o tocá el menú de 3 puntos (⋮) arriba a la derecha.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-emerald-500/30">3</span>
+                  <span>Seleccioná <strong>"Agregar a la pantalla principal"</strong> o <strong>"Instalar aplicación"</strong>.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-emerald-500/30">4</span>
+                  <span>¡Listo! El ícono de MAX24 aparecerá en tu pantalla de inicio como una app nativa.</span>
+                </li>
+              </ol>
+            </div>
+
+            {/* iOS/iPhone instructions card */}
+            <div className="bg-slate-800/80 border border-slate-700/80 p-6 rounded-2xl space-y-4 shadow-lg">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
+                <div className="p-2.5 bg-blue-500/20 text-blue-400 rounded-xl border border-blue-500/30">
+                  <Apple className="w-6 h-6" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-widest block">Apple iOS</span>
+                  <h3 className="text-base font-black text-white">¿Cómo instalar en iPhone / iPad?</h3>
+                  <p className="text-[10px] text-slate-400">Compatible con Safari en iOS 11.3 o superior</p>
+                </div>
+              </div>
+
+              <ol className="space-y-3 text-xs text-slate-200">
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-blue-500/30">1</span>
+                  <span>Abre <strong>max24app.com</strong> en el navegador <strong>Safari</strong> de tu iPhone.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-blue-500/30">2</span>
+                  <span>Tocá el botón <strong>Compartir</strong> <Share className="w-3.5 h-3.5 inline text-blue-400 mx-1" /> (el rectángulo con la flecha hacia arriba) en la barra inferior.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-blue-500/30">3</span>
+                  <span>Desplázate hacia abajo y seleccioná <strong>"Agregar a inicio"</strong> <PlusSquare className="w-3.5 h-3.5 inline text-blue-400 mx-1" /> (o <i>Add to Home Screen</i>).</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 font-mono font-black text-xs flex items-center justify-center shrink-0 border border-blue-500/30">4</span>
+                  <span>Tocá <strong>"Agregar"</strong> arriba a la derecha. ¡Ya tenés acceso directo en tu iPhone!</span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          {/* Desktop Call to action */}
+          <div className="mt-8 pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 relative z-10">
+            <div className="flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-orange-400 shrink-0" />
+              <span><strong>¿Estás en tu Computadora?</strong> También podés instalar MAX24 en tu escritorio (Windows/Mac) desde el ícono de la barra de direcciones.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                alert('Para instalar la app de MAX24:\n\n• En Android: Tocá el menú de 3 puntos en Chrome -> "Agregar a pantalla de inicio".\n• En iPhone: Tocá el botón Compartir en Safari -> "Agregar a inicio".\n• En PC: Tocá el ícono de instalación en la barra de direcciones.');
+              }}
+              className="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl transition-all cursor-pointer shadow-md shrink-0 uppercase flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              Instalar App PWA Ahora
+            </button>
           </div>
         </div>
       </section>

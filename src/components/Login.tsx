@@ -211,6 +211,9 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
   const [showEmailSentNotification, setShowEmailSentNotification] = useState(false);
 
   // Countdown timer for 2FA expiration
+  const [codeCopiedFeedback, setCodeCopiedFeedback] = useState(false);
+  const [autoFilledFeedback, setAutoFilledFeedback] = useState(false);
+
   React.useEffect(() => {
     let timer: any;
     if (is2FAPending && verificationTimer > 0) {
@@ -942,12 +945,12 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
   if (is2FAPending) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans" id="login-module-2fa-container">
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-x-hidden font-sans" id="login-module-2fa-container">
         {/* Visual Ambient Blur Background circles */}
-        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-orange-500/5 blur-[120px] rounded-full -translate-x-12 -translate-y-12" />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[130px] rounded-full translate-x-12 translate-y-12" />
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-orange-500/5 blur-[120px] rounded-full -translate-x-12 -translate-y-12 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-500/5 blur-[130px] rounded-full translate-x-12 translate-y-12 pointer-events-none" />
 
-        <div className="w-full max-w-md bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xl relative z-10 animate-fade-in text-center space-y-6">
+        <div className="w-full max-w-md bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xl relative z-10 animate-fade-in text-center space-y-6 my-auto">
           <div className="mx-auto w-12 h-12 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-center text-blue-600 shadow-sm shadow-blue-500/5">
             <ShieldCheck className="w-6 h-6 animate-pulse" />
           </div>
@@ -966,14 +969,30 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
           <form onSubmit={handleVerify2FA} className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-2 text-left">Código de Ingreso</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[10px] font-bold text-slate-700 uppercase tracking-wider text-left">Código de Ingreso</label>
+                {verificationCode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserInputCode(verificationCode);
+                      setAutoFilledFeedback(true);
+                      setTimeout(() => setAutoFilledFeedback(false), 2000);
+                    }}
+                    className="text-[11px] font-extrabold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <Zap className="w-3 h-3 text-amber-500" />
+                    <span>{autoFilledFeedback ? '¡Rellenado!' : 'Autocompletar'}</span>
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 maxLength={6}
                 placeholder="000000"
                 value={userInputCode}
                 onChange={(e) => setUserInputCode(e.target.value.replace(/[^0-9a-zA-Z]/g, ''))}
-                className="w-full text-center tracking-[0.5em] text-xl font-bold py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono"
+                className="w-full text-center tracking-[0.5em] text-2xl font-black py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all font-mono text-slate-900"
                 required
                 autoFocus
               />
@@ -988,7 +1007,7 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
             <button
               type="submit"
-              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl text-xs sm:text-sm shadow-lg shadow-slate-900/10 select-none transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl text-xs sm:text-sm shadow-lg shadow-slate-900/10 select-none transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
             >
               <ShieldCheck className="w-4 h-4" />
               Confirmar Identidad y Acceder
@@ -1030,41 +1049,77 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
         {/* ELEGANT FLOATING SIMULATED EMAIL CLIENT POPUP / OVERLAY */}
         {showEmailSentNotification && tempUser && (
-          <div className="fixed bottom-4 right-4 max-w-sm w-full bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 shadow-2xl p-4.5 z-50 animate-bounce-in font-sans">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <span className="p-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg shrink-0">
+          <div className="fixed bottom-3 left-3 right-3 sm:left-auto sm:right-4 sm:bottom-4 max-w-md sm:max-w-sm w-auto bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 shadow-2xl p-4 z-50 animate-fade-in font-sans max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="p-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg shrink-0">
                   <Mail className="w-4 h-4" />
                 </span>
-                <span className="text-[10px] uppercase font-black tracking-widest text-blue-400 font-mono">Notificación de Correo Recibido</span>
+                <span className="text-[10px] uppercase font-black tracking-widest text-blue-400 font-mono truncate">Notificación de Correo Recibido</span>
               </div>
               <button 
                 onClick={() => setShowEmailSentNotification(false)}
-                className="text-slate-400 hover:text-slate-200 transition-all p-0.5 rounded-lg hover:bg-slate-800"
+                className="text-slate-400 hover:text-slate-200 transition-all p-1 rounded-lg hover:bg-slate-800 shrink-0 cursor-pointer"
+                title="Cerrar notificación"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="mt-3.5 space-y-2.5 text-xs text-slate-300 border-t border-slate-800 pt-3">
-              <div>
-                <span className="text-slate-500 font-sans">De:</span> <span className="font-semibold text-slate-200">seguridad@max24app.com</span>
+            <div className="mt-3 space-y-2 text-xs text-slate-300">
+              <div className="grid grid-cols-[30px_1fr] gap-1">
+                <span className="text-slate-500 font-sans">De:</span> 
+                <span className="font-semibold text-slate-200 truncate">seguridad@max24app.com</span>
               </div>
-              <div>
-                <span className="text-slate-500 font-sans">Para:</span> <span className="font-semibold text-slate-200 font-sans">{tempUser.email}</span>
+              <div className="grid grid-cols-[30px_1fr] gap-1">
+                <span className="text-slate-500 font-sans">Para:</span> 
+                <span className="font-semibold text-slate-200 font-sans truncate">{tempUser.email}</span>
               </div>
-              <div>
-                <span className="text-slate-500 font-sans">Asunto:</span> <span className="font-semibold text-emerald-400 font-sans">🔒 Código de acceso de un solo uso MAX24</span>
-              </div>
-              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl mt-2 text-[11px] leading-relaxed text-slate-300 font-sans">
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl mt-2 text-[11px] leading-relaxed text-slate-300 font-sans space-y-2">
                 <p>Hola <strong className="text-white">{tempUser.name}</strong>,</p>
-                <p className="mt-1">Utiliza el siguiente código para iniciar sesión de forma segura en tu portal de MAX24:</p>
-                <div className="my-2.5 text-center">
-                  <span className="inline-block tracking-[0.25em] bg-blue-500/10 text-blue-400 border border-blue-500/20 text-lg font-black px-4 py-1.5 rounded-xl font-mono">
+                <p className="text-slate-400">Código de seguridad para tu inicio de sesión:</p>
+                
+                {/* Visual Code Box with 1-Click Action Buttons */}
+                <div className="py-2 px-3 bg-blue-950/60 border border-blue-800/40 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 text-center">
+                  <span className="tracking-[0.25em] text-blue-400 text-lg font-black font-mono">
                     {verificationCode}
                   </span>
+                  
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserInputCode(verificationCode);
+                        setAutoFilledFeedback(true);
+                        setTimeout(() => setAutoFilledFeedback(false), 2000);
+                      }}
+                      className="flex-1 sm:flex-initial px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>{autoFilledFeedback ? '¡Rellenado!' : 'Autocompletar'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(verificationCode);
+                          setCodeCopiedFeedback(true);
+                          setTimeout(() => setCodeCopiedFeedback(false), 2000);
+                        } catch (e) {
+                          setUserInputCode(verificationCode);
+                        }
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 border border-slate-700 cursor-pointer active:scale-95"
+                      title="Copiar código al portapapeles"
+                    >
+                      <Check className={`w-3 h-3 ${codeCopiedFeedback ? 'text-emerald-400' : 'text-slate-400'}`} />
+                      <span>{codeCopiedFeedback ? '¡Copiado!' : 'Copiar'}</span>
+                    </button>
+                  </div>
                 </div>
-                <p className="text-[10px] text-slate-500">Este código expirará en 2 minutos. Si no solicitaste este acceso, desestima este mensaje.</p>
+
+                <p className="text-[10px] text-slate-500 text-center">Expiración en 2 min. Código oficial enviado por SMTP a tu correo.</p>
               </div>
             </div>
           </div>

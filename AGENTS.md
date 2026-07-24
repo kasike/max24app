@@ -208,6 +208,33 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   1. **Ancho Flexible y Truncado Integrado (`POS.tsx`)**: Se configuró el contenedor con `w-full sm:w-auto max-w-full min-w-0 overflow-hidden` y el elemento `<select>` con `min-w-0 flex-1 truncate max-w-[170px] xs:max-w-[210px] sm:max-w-xs`.
   2. **Detección Anti-Redundancia de Rol**: Se agregó una verificación condicional `const roleTag = emp.role && !emp.name.toLowerCase().includes(emp.role.toLowerCase()) ? ' (' + emp.role + ')' : ''` para no repetir el rol entre paréntesis si ya forma parte del nombre del usuario.
 
+### Característica 24: Sección de Guía e Instrucciones de Descarga e Instalación PWA Móvil
+* **Requerimiento:** Explicar a los usuarios en la página principal (`max24app.com` / `LandingPage.tsx`) que pueden descargar e instalar la app de MAX24 directamente en sus celulares sin pasar por las tiendas de aplicaciones (Play Store / App Store), detallando el procedimiento paso a paso para Android e iPhone.
+* **Solución:**
+  1. **Sección Dedicada `#descargar-app` en `LandingPage.tsx`**: Se integró una sección con diseño oscuro en degradado índigo y naranja. Presenta las ventajas diferenciales de la PWA (instalación en 1 clic, ultraliviana <5MB, siempre actualizada y con encriptación SSL 256-bit).
+  2. **Instructivo Guiado por Sistema Operativo**:
+     - **📱 Google Android**: Instructivo paso a paso usando Google Chrome / Edge / Brave (*"Abrir max24app.com -> Presionar Instalar App o Menú 3 puntos -> Agregar a pantalla principal"*).
+     - **🍏 Apple iOS**: Instructivo paso a paso usando Safari (*"Abrir max24app.com en Safari -> Tocá Compartir ⎋ -> Desplazarse y seleccionar Agregar a inicio ➕ -> Tocá Agregar"*).
+     - **💻 Computadoras**: Nota informativa para instalar la PWA en escritorio (Windows/Mac) desde la barra de direcciones del navegador.
+  3. **Acceso Directo en Menú de Navegación**: Se incorporó el botón e hipervínculo **"App Móvil PWA"** con ícono animado de teléfono en la barra superior del sitio, permitiendo a los visitantes desplazarse con un clic directamente a las instrucciones de descarga.
+
+### Error 25: Cierre Abrupto de la Cámara del Escáner y Pérdida de Venta en POS
+* **Fallo:** Al cerrar la ventana modal del escáner de cámara en la PWA, la aplicación sufría un cierre crítico (pantalla blanca de error) perdiendo los productos cargados en el carrito de compras.
+* **Causa:** La librería `html5-qrcode` lanzaba una excepción no capturada si el flujo de video finalizaba abruptamente o el elemento HTML del reproductor (`#reader`) se desenganchaba del DOM antes de completar la detención asíncrona (`stop()` y `clear()`). Adicionalmente, el estado del carrito residía únicamente en memoria volátil de React.
+* **Solución:**
+  1. **Apagado Asíncrono de Cámara e Intercepción de DOM (`POS.tsx`)**: Se reestructuró la función `stopScanning` usando banderas de control `isStoppingRef` para detener el escáner de forma asíncrona dentro de bloques `try-catch-finally`, garantizando la ejecución segura de `clear()` incluso si el modal se desmonta.
+  2. **Persistencia Automática de Carrito en `localStorage`**: Se implementó una sincronización activa de la lista de productos del carrito (`max24_active_cart`) que restaura las compras en proceso al cargar el POS o recuperarse de cualquier error, eliminándose automáticamente solo al finalizar la venta o vaciar la caja.
+  3. **Aislamiento por `POSErrorBoundary`**: Se implementó la clase `POSErrorBoundary` envolviendo de manera localizada la ventana modal del escáner de cámara y el módulo principal del POS. En caso de interrupciones de hardware o sensores de cámara, la falla queda contenida ofreciendo un botón de recuperación rápida ("Volver a la Caja POS") sin interrumpir el resto de la app.
+
+### Error 26: Desplazamiento y Falta de Interacción en Ventana Flotante de Notificación 2FA Móvil
+* **Fallo:** En celulares y vista PWA, el recuadro flotante de "Notificación de Correo Recibido" (2FA) se mostraba descentrado o cortado en la parte inferior de la pantalla, obstruyendo la tarjeta de verificación de seguridad e imposibilitando la copia o llenado rápido del código de 6 dígitos.
+* **Causa:** El contenedor del mensaje utilizaba posicionamiento rígido `fixed bottom-4 right-4 max-w-sm` sin considerar anchos de pantalla reducidos de teléfonos móviles ni la presencia de teclados táctiles o barras de navegación PWA. Además, el código de verificación sólo se mostraba como texto estático sin funciones de copiado o llenado automático.
+* **Solución:**
+  1. **Maquetación Adaptativa e Integración Móvil (`Login.tsx`)**: Se ajustó el posicionamiento a `fixed bottom-3 left-3 right-3 sm:left-auto sm:right-4 sm:bottom-4 max-w-md sm:max-w-sm w-auto max-h-[85vh] overflow-y-auto`, garantizando que la ventana se centre de forma limpia y nunca sobresalga o corte en dispositivos móviles.
+  2. **Botón de Relleno Automático en 1 Clic (`⚡ Autocompletar`)**: Se incorporó un botón de acción rápida que copia instantáneamente el código de 6 dígitos enviado por correo directamente en la caja de texto `userInputCode` del formulario con retroalimentación visual interactiva.
+  3. **Copiado al Portapapeles Nativo (`📋 Copiar`)**: Se añadió integración directa con `navigator.clipboard.writeText` para permitir la copia tradicional al portapapeles con confirmación gráfica.
+  4. **Atajo Directo en Formulario de Verificación**: Se colocó el disparador de autocompletado directamente arriba del campo de texto principal del 2FA para permitir la carga del código con un solo toque incluso si la ventana flotante es descartada.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

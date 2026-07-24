@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Component, ErrorInfo, ReactNode } from 'react';
 import { 
   Search, 
   Plus, 
@@ -23,10 +23,68 @@ import {
   Camera,
   QrCode,
   Smartphone,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Product, Employee, CartItem, Sale, StoreSettings, Customer } from '../types';
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  onReset?: () => void;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+export class POSErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("POSErrorBoundary capturó un fallo temporal en el módulo del POS/Escáner:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl text-slate-800 my-4 shadow-lg text-left">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 bg-amber-500 text-white rounded-xl font-bold shrink-0 shadow-md shadow-amber-500/20">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1.5 flex-1">
+              <h4 className="text-sm font-black text-amber-950">Aviso del Escáner / Dispositivo POS</h4>
+              <p className="text-xs text-amber-850 leading-relaxed font-sans">
+                Ocurrió una interrupción al apagar o gestionar el sensor de la cámara del escáner. <strong>Tus productos en el carrito de compras están 100% protegidos y guardados intactos.</strong>
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (this.props.onReset) this.props.onReset();
+                  this.setState({ hasError: false, error: null });
+                }}
+                className="mt-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer uppercase tracking-wider font-sans flex items-center gap-1.5 active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Volver a la Caja POS</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface POSProps {
   products: Product[];
@@ -38,7 +96,7 @@ interface POSProps {
   onAddCustomer: (newCustomer: Omit<Customer, 'id'>) => Customer;
 }
 
-export default function POS({ products, employees, onRegisterSale, currentUser, storeSettings, customers, onAddCustomer }: POSProps) {
+function POS({ products, employees, onRegisterSale, currentUser, storeSettings, customers, onAddCustomer }: POSProps) {
   // Navigation & Category states
   const [activeCategory, setActiveCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -49,9 +107,35 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
   const [autoCloseOnScan, setAutoCloseOnScan] = useState(true);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   
-  // Cart state
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Cart state with localStorage recovery
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const savedCart = localStorage.getItem('max24_active_cart');
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("Error cargando carrito guardado desde localStorage:", e);
+    }
+    return [];
+  });
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+
+  // Automatic Cart Persistence in LocalStorage
+  React.useEffect(() => {
+    try {
+      if (cart.length > 0) {
+        localStorage.setItem('max24_active_cart', JSON.stringify(cart));
+      } else {
+        localStorage.removeItem('max24_active_cart');
+      }
+    } catch (e) {
+      console.warn("Error al persistir el carrito en localStorage:", e);
+    }
+  }, [cart]);
   
   // Seller State (default to current employee or first active)
   const activeSellers = useMemo(() => employees.filter(e => e.status === 'Activo'), [employees]);
@@ -208,6 +292,7 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
 
   // --- Barcode / Camera Scanner Helpers & Effects ---
   const html5QrCodeRef = React.useRef<Html5Qrcode | null>(null);
+  const isStoppingRef = React.useRef<boolean>(false);
   const lastScannedCode = React.useRef<string>('');
   const lastScannedTime = React.useRef<number>(0);
 
@@ -234,19 +319,30 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
   };
 
   const stopScanning = async () => {
-    setIsScanning(false);
+    if (isStoppingRef.current) return;
+    isStoppingRef.current = true;
     setScanFeedback(null);
+
     if (html5QrCodeRef.current) {
+      const scanner = html5QrCodeRef.current;
+      html5QrCodeRef.current = null;
       try {
-        if (html5QrCodeRef.current.isScanning) {
-          await html5QrCodeRef.current.stop();
+        if (scanner.isScanning) {
+          await scanner.stop();
         }
       } catch (err) {
-        console.error("Error stopping barcode camera:", err);
+        console.warn("Camara detenida silenciosamente (sin error):", err);
       } finally {
-        html5QrCodeRef.current = null;
+        try {
+          scanner.clear();
+        } catch (e) {
+          // ignore clear error if DOM node was detached
+        }
       }
     }
+
+    setIsScanning(false);
+    isStoppingRef.current = false;
   };
 
   const handleBarcodeScanned = (code: string) => {
@@ -307,15 +403,20 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
   React.useEffect(() => {
     if (isScanning) {
       setScanFeedback(null);
+      isStoppingRef.current = false;
       
       const startTimer = setTimeout(async () => {
         try {
+          if (!document.getElementById("reader")) return;
+
           const devices = await Html5Qrcode.getCameras().catch(() => []);
           if (devices.length === 0) {
             setHasCameraPermission(false);
           } else {
             setHasCameraPermission(true);
           }
+
+          if (!document.getElementById("reader")) return;
 
           const scanner = new Html5Qrcode("reader");
           html5QrCodeRef.current = scanner;
@@ -333,7 +434,7 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
             }
           );
         } catch (err) {
-          console.error("Scanner failed to start:", err);
+          console.warn("No se pudo iniciar la cámara del escáner (manejado de forma segura):", err);
           setHasCameraPermission(false);
           setScanFeedback({
             type: 'error',
@@ -346,12 +447,24 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
         clearTimeout(startTimer);
         if (html5QrCodeRef.current) {
           const currentScanner = html5QrCodeRef.current;
-          if (currentScanner.isScanning) {
-            currentScanner.stop().catch(err => {
-              console.error("Scanner stop cleanup error:", err);
-            });
-          }
           html5QrCodeRef.current = null;
+          try {
+            if (currentScanner.isScanning) {
+              currentScanner.stop().catch(err => {
+                console.warn("Scanner stop cleanup handled:", err);
+              }).finally(() => {
+                try {
+                  currentScanner.clear();
+                } catch (e) {}
+              });
+            } else {
+              try {
+                currentScanner.clear();
+              } catch (e) {}
+            }
+          } catch (e) {
+            console.warn("Scanner cleanup exception ignored safely:", e);
+          }
         }
       };
     }
@@ -1988,117 +2101,127 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
 
       {/* CAMERA SCANNER MODAL OVERLAY */}
       {isScanning && (
-        <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 flex flex-col">
-            
-            {/* Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
-                  <QrCode className="w-5 h-5" />
+        <POSErrorBoundary onReset={() => setIsScanning(false)}>
+          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 flex flex-col">
+              
+              {/* Header */}
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Escáner de Cámara POS</h3>
+                    <p className="text-[11px] text-slate-500 font-medium font-sans">Apunta al código con la cámara trasera</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Escáner de Cámara POS</h3>
-                  <p className="text-[11px] text-slate-500 font-medium font-sans">Apunta al código con la cámara trasera</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={stopScanning}
+                  className="p-1.5 hover:bg-slate-200 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={stopScanning}
-                className="p-1.5 hover:bg-slate-200 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Video Container Frame */}
-            <div className="relative aspect-video w-full bg-slate-950 overflow-hidden flex items-center justify-center">
-              <div id="reader" className="w-full h-full" />
-              
-              {/* Pulsing/Scanning Laser Visual Overlay */}
-              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-emerald-500/80 shadow-[0_0_12px_#10b981] animate-pulse pointer-events-none" />
-              
-              {/* Corner brackets */}
-              <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md pointer-events-none" />
-              <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md pointer-events-none" />
-              <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md pointer-events-none" />
-              <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md pointer-events-none" />
+              {/* Video Container Frame */}
+              <div className="relative aspect-video w-full bg-slate-950 overflow-hidden flex items-center justify-center">
+                <div id="reader" className="w-full h-full" />
+                
+                {/* Pulsing/Scanning Laser Visual Overlay */}
+                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-0.5 bg-emerald-500/80 shadow-[0_0_12px_#10b981] animate-pulse pointer-events-none" />
+                
+                {/* Corner brackets */}
+                <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-emerald-500 rounded-tl-md pointer-events-none" />
+                <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-emerald-500 rounded-tr-md pointer-events-none" />
+                <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-emerald-500 rounded-bl-md pointer-events-none" />
+                <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-emerald-500 rounded-br-md pointer-events-none" />
 
-              {/* Loader/States Overlay */}
-              {hasCameraPermission === null && (
-                <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center text-slate-400 gap-2">
-                  <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-xs font-sans">Inicializando cámara...</span>
+                {/* Loader/States Overlay */}
+                {hasCameraPermission === null && (
+                  <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center text-slate-400 gap-2">
+                    <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs font-sans">Inicializando cámara...</span>
+                  </div>
+                )}
+
+                {hasCameraPermission === false && (
+                  <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-center p-6 text-slate-400 gap-3">
+                    <div className="p-3 bg-rose-500/10 text-rose-500 rounded-full">
+                      <Camera className="w-8 h-8" />
+                    </div>
+                    <div className="space-y-1 px-4">
+                      <p className="text-xs font-bold text-slate-200">Acceso a cámara denegado</p>
+                      <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed font-sans">
+                        Asegúrate de dar permisos de cámara en tu navegador. Si estás en AI Studio, usa el botón en la barra de URL o abre la app en una pestaña nueva.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Live feedback alert bar */}
+              {scanFeedback && (
+                <div className={`p-3 text-center border-b transition-all ${
+                  scanFeedback.type === 'success' 
+                    ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800' 
+                    : 'bg-rose-50/80 border-rose-100 text-rose-900'
+                }`}>
+                  <p className="text-xs font-bold font-sans flex items-center justify-center gap-1.5">
+                    {scanFeedback.type === 'success' ? (
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <Ban className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{scanFeedback.message}</span>
+                  </p>
                 </div>
               )}
 
-              {hasCameraPermission === false && (
-                <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-center p-6 text-slate-400 gap-3">
-                  <div className="p-3 bg-rose-500/10 text-rose-500 rounded-full">
-                    <Camera className="w-8 h-8" />
+              {/* Controls panel */}
+              <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
+                <label className="flex items-center justify-between cursor-pointer select-none">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-slate-800 block font-sans">Modo de Escaneo Continuo</span>
+                    <span className="text-[10px] text-slate-500 font-medium block font-sans">Permite escanear múltiples productos seguidos</span>
                   </div>
-                  <div className="space-y-1 px-4">
-                    <p className="text-xs font-bold text-slate-200">Acceso a cámara denegado</p>
-                    <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed font-sans">
-                      Asegúrate de dar permisos de cámara en tu navegador. Si estás en AI Studio, usa el botón en la barra de URL o abre la app en una pestaña nueva.
-                    </p>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={!autoCloseOnScan}
+                      onChange={(e) => setAutoCloseOnScan(!e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-emerald-500/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
                   </div>
-                </div>
-              )}
-            </div>
+                </label>
 
-            {/* Live feedback alert bar */}
-            {scanFeedback && (
-              <div className={`p-3 text-center border-b transition-all ${
-                scanFeedback.type === 'success' 
-                  ? 'bg-emerald-50/80 border-emerald-100 text-emerald-800' 
-                  : 'bg-rose-50/80 border-rose-100 text-rose-900'
-              }`}>
-                <p className="text-xs font-bold font-sans flex items-center justify-center gap-1.5">
-                  {scanFeedback.type === 'success' ? (
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  ) : (
-                    <Ban className="w-4 h-4 text-rose-600 shrink-0" />
-                  )}
-                  <span>{scanFeedback.message}</span>
-                </p>
-              </div>
-            )}
-
-            {/* Controls panel */}
-            <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
-              <label className="flex items-center justify-between cursor-pointer select-none">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-slate-800 block font-sans">Modo de Escaneo Continuo</span>
-                  <span className="text-[10px] text-slate-500 font-medium block font-sans">Permite escanear múltiples productos seguidos</span>
+                <div className="text-[10px] text-slate-400 bg-slate-100 border border-slate-200 p-2.5 rounded-lg leading-relaxed font-medium font-sans">
+                  <span className="font-bold text-slate-600">💡 Tip de Cajero:</span> Sostén el producto estable a 10-15 cm de la cámara para que enfoque el código de barras. El sistema emitirá un sonido "bip" y lo agregará al pedido al instante.
                 </div>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={!autoCloseOnScan}
-                    onChange={(e) => setAutoCloseOnScan(!e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-slate-300 rounded-full peer peer-focus:ring-2 peer-focus:ring-emerald-500/30 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                </div>
-              </label>
 
-              <div className="text-[10px] text-slate-400 bg-slate-100 border border-slate-200 p-2.5 rounded-lg leading-relaxed font-medium font-sans">
-                <span className="font-bold text-slate-600">💡 Tip de Cajero:</span> Sostén el producto estable a 10-15 cm de la cámara para que enfoque el código de barras. El sistema emitirá un sonido "bip" y lo agregará al pedido al instante.
+                <button
+                  type="button"
+                  onClick={stopScanning}
+                  className="w-full py-2 bg-slate-800 text-white hover:bg-slate-700 text-xs font-bold rounded-xl active:scale-98 transition-all cursor-pointer font-sans"
+                >
+                  Cerrar Escáner
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={stopScanning}
-                className="w-full py-2 bg-slate-800 text-white hover:bg-slate-700 text-xs font-bold rounded-xl active:scale-98 transition-all cursor-pointer font-sans"
-              >
-                Cerrar Escáner
-              </button>
             </div>
-
           </div>
-        </div>
+        </POSErrorBoundary>
       )}
     </div>
+  );
+}
+
+export default function POSWithBoundary(props: POSProps) {
+  return (
+    <POSErrorBoundary>
+      <POS {...props} />
+    </POSErrorBoundary>
   );
 }
