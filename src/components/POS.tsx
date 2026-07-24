@@ -586,18 +586,23 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
           </div>
           
           {/* Seller / Operator Quick Dropdown to simulate different users */}
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 self-start md:self-auto">
+          <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 w-full sm:w-auto max-w-full min-w-0 overflow-hidden self-start md:self-auto">
             <Users className="w-4 h-4 text-slate-500 shrink-0" />
-            <span className="text-xs text-slate-600 font-medium font-sans">Vendedor:</span>
+            <span className="text-xs text-slate-600 font-medium font-sans shrink-0">Vendedor:</span>
             <select
               value={selectedSellerId}
               onChange={(e) => setSelectedSellerId(e.target.value)}
-              className="text-xs bg-transparent border-none text-slate-800 focus:outline-hidden font-semibold cursor-pointer"
+              className="text-xs bg-transparent border-none text-slate-800 focus:outline-hidden font-semibold cursor-pointer min-w-0 flex-1 truncate max-w-[170px] xs:max-w-[210px] sm:max-w-xs"
             >
               <option value="" disabled>Seleccionar...</option>
-              {activeSellers.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
-              ))}
+              {activeSellers.map(emp => {
+                const roleTag = emp.role && !emp.name.toLowerCase().includes(emp.role.toLowerCase()) ? ` (${emp.role})` : '';
+                return (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}{roleTag}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>

@@ -201,6 +201,13 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   2. **Banner de Salud Ajustado (`StoreHealthBanner.tsx`)**: Se reestructuró la cuadrícula de acciones en pantallas móviles y se fijó la posición del botón de cierre (`X`) en la esquina superior derecha con `absolute top-3 right-3`, eliminando saltos de línea indeseados.
   3. **Barra de Cabecera y Botón Flotante (`App.tsx` & `AccessibilityAssistant.tsx`)**: Se abrevió el texto de conexión en la barra superior para teléfonos inteligentes (`sm:hidden text-[10px] font-bold`) y se reajustó el tamaño del badge flotante de accesibilidad (`p-3 sm:p-4 bottom-4 left-3`) garantizando un área táctil limpia de 44px que no interfiere con el catálogo de productos.
 
+### Error 23: Desbordamiento de Texto y Duplicidad en Selector de Vendedor del POS
+* **Fallo:** En celulares, el texto de la opción seleccionada en la caja de vendedor salía del recuadro del botón flotante e imprimía repetidamente la palabra `(Administrador)` al final (ej. `Administrador BigMAX (Administrador)`).
+* **Causa:** El elemento `<select>` no poseía restricción de ancho máximo ni truncamiento en CSS (`truncate`), forzando al elemento HTML nativo del navegador a expandirse a lo ancho. Además, la plantilla concatenaba incondicionalmente `({emp.role})` incluso cuando el nombre del usuario ya contenía el título de su rol.
+* **Solución:**
+  1. **Ancho Flexible y Truncado Integrado (`POS.tsx`)**: Se configuró el contenedor con `w-full sm:w-auto max-w-full min-w-0 overflow-hidden` y el elemento `<select>` con `min-w-0 flex-1 truncate max-w-[170px] xs:max-w-[210px] sm:max-w-xs`.
+  2. **Detección Anti-Redundancia de Rol**: Se agregó una verificación condicional `const roleTag = emp.role && !emp.name.toLowerCase().includes(emp.role.toLowerCase()) ? ' (' + emp.role + ')' : ''` para no repetir el rol entre paréntesis si ya forma parte del nombre del usuario.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.
