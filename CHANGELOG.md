@@ -10,6 +10,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-23
 
 ### Corregido
+- **Alineación de Workflow de GitHub Actions (`android-build.yml`)**: Corregida la invocación de Gradle en el entorno de integración continua `ubuntu-latest`. Se sustituyó el comando global `gradle` por el script wrapper local `./gradlew` con permisos de ejecución (`chmod +x gradlew`), solucionando los fallos de compilación automática del ejecutable Android AAB.
 - **Control de Acceso por Roles (RBAC) en Pestaña de Proveedores B2B y Portales**: Reparado el fallo de seguridad en `Login.tsx` donde credenciales pertenecientes a un Comercio/Administrador (ej. `bigmax24h7@gmail.com`) permitían iniciar sesión desde la pestaña "Proveedores B2B" e ingresar al panel del comercio. Se implementó una verificación estricta de rol (`mainPortalTab`), bloqueando la autenticación cruzada con alertas explicativas claras (ej. `⛔ Acceso denegado. Esta cuenta está registrada como Comercio. Por favor, inicia sesión desde la pestaña 'Comercio POS'.`).
 
 ### Añadido
