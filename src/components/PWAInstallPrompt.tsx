@@ -14,7 +14,7 @@ export default function PWAInstallPrompt() {
   const [showBanner, setShowBanner] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if already running in PWA standalone mode
+    // Check if running in PWA standalone mode
     const isStandaloneMode = 
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -26,23 +26,30 @@ export default function PWAInstallPrompt() {
     const isIOSDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIOSDevice);
 
-    // Check if user previously dismissed the install prompt banner
-    const isDismissed = localStorage.getItem('max24_pwa_banner_dismissed') === 'true';
+    // Check 7-day snooze logic
+    const dismissedTime = localStorage.getItem('pwa_banner_dismissed');
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    const isSnoozed = dismissedTime && (Date.now() - Number(dismissedTime) < SEVEN_DAYS_MS);
 
     // Listen for beforeinstallprompt on Chrome/Android/Desktop
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      if (!isStandaloneMode && !isDismissed) {
-        setShowBanner(true);
+      if (!isStandaloneMode && !isSnoozed) {
+        // Delay by 3 seconds for optimal UX
+        setTimeout(() => {
+          setShowBanner(true);
+        }, 3000);
       }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
-    // For iOS, if not standalone and not dismissed, show banner
-    if (isIOSDevice && !isStandaloneMode && !isDismissed) {
-      setShowBanner(true);
+    // For iOS Safari, show banner with delay if not standalone & not snoozed
+    if (isIOSDevice && !isStandaloneMode && !isSnoozed) {
+      setTimeout(() => {
+        setShowBanner(true);
+      }, 3000);
     }
 
     return () => {
@@ -60,7 +67,7 @@ export default function PWAInstallPrompt() {
         setDeferredPrompt(null);
       }
     } else if (isIOS) {
-      // Show iOS step-by-step installation instructions
+      // Show iOS step-by-step installation modal
       setShowIOSModal(true);
     } else {
       // Fallback instruction
@@ -70,52 +77,60 @@ export default function PWAInstallPrompt() {
 
   const handleDismissBanner = () => {
     setShowBanner(false);
-    localStorage.setItem('max24_pwa_banner_dismissed', 'true');
+    // Snooze for 7 days
+    localStorage.setItem('pwa_banner_dismissed', String(Date.now()));
   };
 
-  // If app is already installed/standalone, don't display prompt
   if (isStandalone) {
     return null;
   }
 
   return (
     <>
-      {/* Floating or Top Banner for PWA Installation */}
+      {/* Sticky Floating Bottom Sheet (Thumb Zone UX) */}
       {showBanner && (
-        <div className="mb-4 bg-gradient-to-r from-slate-900 via-orange-950/80 to-slate-900 border border-orange-500/30 text-white rounded-2xl p-3.5 sm:p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in font-sans">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">
-              <Smartphone className="w-5 h-5" />
+        <div className="fixed bottom-4 left-4 right-4 z-50 bg-slate-900/95 backdrop-blur-md border border-orange-500/40 text-white p-4 rounded-2xl shadow-2xl md:max-w-md md:left-auto md:right-6 font-sans animate-fade-in">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0">
+                <Smartphone className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-black text-sm text-white flex items-center gap-1.5">
+                  Instalá la App de MAX24
+                  <span className="px-1.5 py-0.5 bg-orange-500/20 border border-orange-500/40 text-orange-300 text-[9px] font-mono font-bold rounded">PWA</span>
+                </p>
+                <p className="text-xs text-slate-300 font-medium leading-tight mt-0.5">
+                  Acceso rápido a tu caja, sin ocupar espacio de memoria.
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-xs font-black text-white flex items-center gap-2">
-                Instala MAX24 en tu dispositivo
-                <span className="px-2 py-0.5 bg-orange-500 text-slate-950 font-black rounded-md text-[9px] uppercase">
-                  PWA Directa
-                </span>
-              </h4>
-              <p className="text-[11px] text-slate-300 font-medium leading-tight mt-0.5">
-                Acceso rápido como App nativa desde tu pantalla de inicio, sin pasar por la Play Store.
-              </p>
-            </div>
+            <button
+              onClick={handleDismissBanner}
+              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-all cursor-pointer shrink-0"
+              title="Omitir por 7 días"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center w-full sm:w-auto justify-end">
+          <div className="mt-3 flex gap-2">
             <button
               type="button"
               onClick={handleInstallClick}
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Download className="w-4 h-4" />
-              <span>Instalar App</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleDismissBanner}
-              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-all cursor-pointer"
-              title="Omitir"
-            >
-              <X className="w-4 h-4" />
+              {isIOS ? (
+                <>
+                  <span>🍎</span>
+                  <span>Ver cómo instalar en iPhone</span>
+                </>
+              ) : (
+                <>
+                  <span>⚡</span>
+                  <span>Instalar en 1 Clic</span>
+                </>
+              )}
             </button>
           </div>
         </div>
