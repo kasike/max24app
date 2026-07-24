@@ -10,10 +10,20 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Corregido
+- **Optimización de Margen Superior de Seguridad en iOS / iPhone para Menú de Navegación (`App.tsx`, `Sidebar.tsx`, `index.html` & `index.css`)**: Se solucionó la superposición de la barra de estado de iPhone (reloj `12:43`, notch y Dynamic Island) sobre el botón de menú hamburguesa (`≡`) y el texto de "Sucursal Activa":
+  1. Se actualizó el meta tag de estado de iOS en `index.html` a `content="default"` evitando que la app renderice por detrás de la hora del sistema.
+  2. Se configuraron paddings dinámicos de seguridad CSS `style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}` en la barra de cabecera principal y en el cajón desplegable del menú lateral `<aside>`.
+  3. Se amplió el área táctil activa del botón de menú hamburguesa (`≡`) y botón de cierre (`X`) a un mínimo de 42px con retroalimentación táctil `active:bg-slate-200` y clase `touch-manipulation`, asegurando un despliegue cómodo e inmediato en iPhones y dispositivos móviles Android.
 - **Ocultamiento de Tarjeta de Propiedad Intelectual (DNDA) en Comercios Estándar (`Settings.tsx`)**: Se condicionó la visualización del bloque DNDA exclusivamente al usuario Master Admin (`pezziniarg@gmail.com`), asegurando que clientes nuevos registrados no vean este certificado privado en la sección de Ajustes de su tienda.
 - **Configuración de Horarios de Atención Personalizados Día por Día (`Settings.tsx` & `StoreSetupWizard.tsx`)**: Se implementó una interfaz interactiva con controles por segmentos (**✗ Cerrado**, **★ 24 Horas** y **🕒 Horario Personalizado**) con entradas libres de tipo hora `<input type="time">` para ingresar manualmente cualquier rango de apertura y cierre (ej. 08:30 a 22:00 hs), eliminando la limitación previa. Incluye plantillas rápidas (08-20, 09-21, 08-22, 24hs) y función en 1 clic de "Copiar Lunes a Todos los Días".
 
 ### Añadido
+- **Módulo de Calculadora Rápida y Facturación Express en POS (`POS.tsx` & `App.tsx`)**: Se implementó una herramienta interactiva de venta rápida accesible mediante el botón **"Venta Rápida / Calc"** en la barra superior del POS y en el panel del carrito:
+  1. **Evaluador Matemático Libre**: Permite ingresar expresiones o sumas directas de montos sin necesidad de buscar productos en el catálogo (ej: `120 + 50000 + 250` = `$50.370`).
+  2. **Teclado Numérico Virtual e Intercepción de Teclas**: Soporta entrada táctil mediante un teclado en pantalla de 20 botones (operadores, borrar `C`, `⌫`, `00`, `=`) y entrada directa por teclado físico.
+  3. **Personalización de Comprobante / Ticket**: Selector de etiquetas rápidas (`Venta Rápida / Varios`, `Mercadería Varias`, `Golosinas / Almacén`, `Kiosco / Cigarrillos`, `Ferretería`) y caja de texto para descripción en el ticket.
+  4. **Modos de Facturación Directos**: Disparadores en 1 clic para **"Agregar al POS"** (mantiene la suma en el carrito para seguir agregando más ítems) o **"Cobrar Directo"** (añade el importe e inicia la pasarela de checkout inmediatamente).
+  5. **Soporte de Registro en Backend**: Se adaptó el flujo de registro de ventas en `App.tsx` para admitir ítems expresos sin requerir SKU ni descontar stock de inventario preexistente.
 - **Módulo Destacado de ID Único de Tienda para Acceso de Empleados (`Settings.tsx` & `Employees.tsx`)**: Se rediseñó la sección de Código de Tienda en la pestaña de Ajustes con un banner visual destacado en degradado naranja, botón **"Copiar ID"** en 1 clic y explicaciones paso a paso de cómo los empleados deben ingresar al POS. Además, se sumó la inclusión automática del ID Único de Tienda en las tarjetas de bienvenida y mensajes de WhatsApp enviados a los nuevos empleados al registrarlos.
 
 ---

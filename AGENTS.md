@@ -252,6 +252,14 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   4. **Tabla de Historial de Turnos y Cierres**: Registro de auditoría por empleado con horas de apertura/cierre, efectivo esperado vs declarado, estados y botón de acción **"📄 Ver Ticket"**.
   5. **Comprobante Térmico & Envió WhatsApp**: Visualizador de ticket Z-Report con firmas, opción de impresión local (`window.print()`) y envío del resumen por WhatsApp al teléfono del comerciante.
 
+### Error 29: Interferencia de Barra de Estado en iOS / iPhone (Menú Hamburguesa no responde)
+* **Fallo:** En iPhones (especialmente con notch o Dynamic Island), el menú de la barra superior (botón hamburguesa `≡` y texto "Sucursal Activa") quedaba posicionado directamente debajo de la hora del sistema iOS (`12:43`) y la barra de estado, impidiendo hacer clic sobre las opciones o desplegar el menú lateral.
+* **Causa:** El meta-tag `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />` forzaba a la PWA de iOS a renderizar la aplicación por debajo de la barra de estado de iPhone a altura `top: 0`. Al no contar con margen superior de seguridad (`env(safe-area-inset-top)`), la barra de estado capturaba los eventos táctiles en la zona superior de la pantalla.
+* **Solución:**
+  1. **Ajuste de Meta Tag en `index.html`**: Se cambió `content="black-translucent"` por `content="default"`, garantizando que iOS asigne los márgenes de estado nativos del dispositivo.
+  2. **Inyección de Safe Area Top Padding (`App.tsx` & `Sidebar.tsx`)**: Se configuró la barra de cabecera superior con `style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}` y el menú lateral desplegable `<aside>` con `paddingTop` y `paddingBottom` respetando `env(safe-area-inset-top)` y `env(safe-area-inset-bottom)`.
+  3. **Target Táctil Mejorado de Menú (`≡` & `X`)**: Se incrementó el área de toque a un mínimo de 42px x 42px con `touch-manipulation`, `z-20`/`z-50` y estado activo visible `active:bg-slate-200`, asegurando una respuesta táctil instantánea en cualquier modelo de iPhone y Android.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

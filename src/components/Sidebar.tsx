@@ -101,9 +101,14 @@ export default function Sidebar({
       )}
 
       {/* Sidebar Container */}
-      <aside className={`
-        fixed inset-y-0 left-0 bg-white text-slate-800 w-64 z-40 transform transition-transform duration-300 ease-in-out flex flex-col justify-between border-r border-orange-100 shadow-sm
-        lg:translate-x-0 lg:static lg:h-[100vh]
+      <aside 
+        style={{ 
+          paddingTop: 'max(0px, env(safe-area-inset-top))',
+          paddingBottom: 'max(0px, env(safe-area-inset-bottom))'
+        }}
+        className={`
+        fixed inset-y-0 left-0 bg-white text-slate-800 w-72 sm:w-64 z-50 transform transition-transform duration-300 ease-in-out flex flex-col justify-between border-r border-orange-100 shadow-2xl
+        lg:translate-x-0 lg:static lg:h-[100vh] lg:shadow-sm lg:p-0
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Header Block & Branding */}
@@ -146,8 +151,10 @@ export default function Sidebar({
               )}
             </div>
             <button 
+              type="button"
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 hover:bg-orange-50 rounded-lg text-slate-500 hover:text-orange-600"
+              className="lg:hidden p-2 bg-slate-100 hover:bg-orange-100 active:bg-orange-200 text-slate-700 hover:text-orange-700 rounded-xl transition-all min-w-[38px] min-h-[38px] flex items-center justify-center cursor-pointer touch-manipulation"
+              aria-label="Cerrar menú"
             >
               <X className="w-5 h-5" />
             </button>

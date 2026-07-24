@@ -1679,23 +1679,25 @@ export default function App() {
 
     // Verify stock availability
     for (const item of cartItems) {
-      const prod = products.find(p => p.id === item.productId);
-      if (!prod) {
+      const prod = products.find(p => p.id === item.productId) || (item as any).customProduct;
+      if (!prod && !item.productId.startsWith('quick-')) {
         throw new Error(`El producto con ID ${item.productId} ya no está disponible en la base de datos.`);
       }
-      if (prod.stock < item.quantity) {
+      if (prod && prod.stock < item.quantity) {
         throw new Error(`Stock insuficiente para ${prod.name}. Quedan solamente ${prod.stock} ${prod.unit}.`);
       }
     }
 
     // Prepare item list details for invoice records
     const registeredItems = cartItems.map(item => {
-      const prodObj = products.find(p => p.id === item.productId)!;
+      const prodObj = products.find(p => p.id === item.productId) || (item as any).customProduct;
+      const productName = prodObj ? prodObj.name : ((item as any).productName || 'Venta Rápida / Varios');
+      const price = prodObj ? prodObj.price : ((item as any).price || 0);
       return {
         productId: item.productId,
-        productName: prodObj.name,
+        productName,
         quantity: item.quantity,
-        price: prodObj.price
+        price
       };
     });
 
@@ -2486,14 +2488,18 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
         {/* Top bar header */}
-        <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0 flex items-center justify-between px-3 sm:px-6 z-20">
-          <div className="flex items-center gap-2 sm:gap-4">
+        <header 
+          style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}
+          className="bg-white border-b border-slate-200 min-h-[3.75rem] sm:min-h-[4rem] flex-shrink-0 flex items-center justify-between px-3 sm:px-6 z-20 transition-all"
+        >
+          <div className="flex items-center gap-2 sm:gap-4 py-1.5">
             <button
+              type="button"
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 focus:outline-hidden cursor-pointer"
-              aria-label="Abrir menú"
+              className="lg:hidden p-2.5 sm:p-2 bg-slate-100/80 hover:bg-slate-200/80 active:bg-slate-200 rounded-xl text-slate-800 border border-slate-200/80 focus:outline-hidden cursor-pointer touch-manipulation min-w-[42px] min-h-[42px] flex items-center justify-center shrink-0 shadow-xxs"
+              aria-label="Abrir menú de navegación"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5 text-slate-800" />
             </button>
             
             <div className="flex items-center gap-2">

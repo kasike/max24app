@@ -24,7 +24,11 @@ import {
   QrCode,
   Smartphone,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Calculator,
+  Zap,
+  Delete,
+  Tag
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Product, Employee, CartItem, Sale, StoreSettings, Customer } from '../types';
@@ -105,6 +109,90 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
   // Navigation & Category states
   const [activeCategory, setActiveCategory] = useState<string>('Todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Quick Calculator / Express Sale States
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [calcExpression, setCalcExpression] = useState('');
+  const [calcDescription, setCalcDescription] = useState('Venta Rápida / Varios');
+
+  // Live evaluated math expression (e.g., "120 + 50000 + 250" => 50370)
+  const calcEvaluatedTotal = useMemo(() => {
+    if (!calcExpression.trim()) return 0;
+    try {
+      let sanitized = calcExpression
+        .replace(/×/g, '*')
+        .replace(/÷/g, '/')
+        .replace(/,/g, '.')
+        .replace(/[^0-9+\-*/.()]/g, '');
+
+      while (/[+\-*/.]$/.test(sanitized)) {
+        sanitized = sanitized.slice(0, -1);
+      }
+      if (!sanitized.trim()) return 0;
+
+      const result = new Function(`'use strict'; return (${sanitized});`)();
+      if (typeof result === 'number' && !isNaN(result) && !isInfinite(result)) {
+        return Math.max(0, Math.round(result * 100) / 100);
+      }
+      return 0;
+    } catch (e) {
+      return 0;
+    }
+  }, [calcExpression]);
+
+  // Virtual Calculator keypad click handler
+  const handleCalcKeyPress = (key: string) => {
+    if (key === 'C') {
+      setCalcExpression('');
+    } else if (key === 'BACKSPACE') {
+      setCalcExpression(prev => prev.slice(0, -1));
+    } else if (key === '=') {
+      if (calcEvaluatedTotal > 0) {
+        setCalcExpression(calcEvaluatedTotal.toString());
+      }
+    } else {
+      setCalcExpression(prev => {
+        const lastChar = prev.slice(-1);
+        const operators = ['+', '-', '*', '/', '×', '÷'];
+        if (operators.includes(lastChar) && operators.includes(key)) {
+          return prev.slice(0, -1) + key;
+        }
+        return prev + key;
+      });
+    }
+  };
+
+  // Add calculated quick item to active cart
+  const handleAddQuickItemToCart = (directCheckout: boolean = false) => {
+    const amount = calcEvaluatedTotal > 0 ? calcEvaluatedTotal : (parseFloat(calcExpression) || 0);
+    if (amount <= 0) {
+      alert("Por favor ingresa una suma o monto mayor a $0 en la calculadora.");
+      return;
+    }
+
+    const descName = calcDescription.trim() || 'Venta Rápida / Varios';
+    const quickProd: Product = {
+      id: `quick-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: descName,
+      price: amount,
+      cost: 0,
+      stock: 999999,
+      minStock: 0,
+      unit: 'un',
+      category: 'Varios',
+      sku: 'EXPRESS-' + Math.floor(1000 + Math.random() * 9000),
+      storeEmail: storeSettings.email || 'global'
+    };
+
+    setCart(prev => [...prev, { product: quickProd, quantity: 1 }]);
+    playBeep();
+    setCalcExpression('');
+    setIsCalculatorOpen(false);
+
+    if (directCheckout) {
+      setIsCheckoutOpen(true);
+    }
+  };
   
   // Barcode Camera Scanner States
   const [isScanning, setIsScanning] = useState(false);
@@ -727,44 +815,57 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
 
         {/* Search and Categories bar */}
         <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, categoría, código o SKU..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  const query = searchQuery.trim().toLowerCase();
-                  if (!query) return;
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, categoría, código o SKU..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const query = searchQuery.trim().toLowerCase();
+                    if (!query) return;
 
-                  // Find if there is any product with an exact barcode or SKU match
-                  const exactMatch = products.find(product => {
-                    const matchBarcode = product.barcode && product.barcode.trim().toLowerCase() === query;
-                    const matchSku = product.sku && product.sku.trim().toLowerCase() === query;
-                    return matchBarcode || matchSku;
-                  });
+                    // Find if there is any product with an exact barcode or SKU match
+                    const exactMatch = products.find(product => {
+                      const matchBarcode = product.barcode && product.barcode.trim().toLowerCase() === query;
+                      const matchSku = product.sku && product.sku.trim().toLowerCase() === query;
+                      return matchBarcode || matchSku;
+                    });
 
-                  if (exactMatch) {
-                    addToCart(exactMatch);
-                    setSearchQuery('');
-                  } else if (filteredProducts.length === 1) {
-                    addToCart(filteredProducts[0]);
-                    setSearchQuery('');
+                    if (exactMatch) {
+                      addToCart(exactMatch);
+                      setSearchQuery('');
+                    } else if (filteredProducts.length === 1) {
+                      addToCart(filteredProducts[0]);
+                      setSearchQuery('');
+                    }
                   }
-                }
-              }}
-              className="w-full pl-11 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
-            />
+                }}
+                className="w-full pl-11 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
+              />
+              <button
+                type="button"
+                onClick={() => setIsScanning(true)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none border border-emerald-200/50"
+                title="Escanear con Cámara"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={() => setIsScanning(true)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition-all active:scale-95 flex items-center justify-center cursor-pointer select-none border border-emerald-200/50"
-              title="Escanear con Cámara"
+              onClick={() => setIsCalculatorOpen(true)}
+              className="px-3.5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/15 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shrink-0 font-sans tracking-tight"
+              title="Abrir Calculadora Rápida para sumar importes libres (120+50000+250)"
             >
-              <Camera className="w-4 h-4" />
+              <Calculator className="w-4 h-4 text-emerald-100 shrink-0" />
+              <span className="hidden sm:inline font-black uppercase tracking-wider text-[11px]">Venta Rápida</span>
+              <span className="sm:hidden font-black text-[11px]">Calc</span>
             </button>
           </div>
 
@@ -884,14 +985,23 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
 
             {/* Cart products list */}
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 md:py-14 text-center">
-                <div className="p-3 bg-emerald-50 rounded-full text-emerald-600 mb-2.5">
+              <div className="flex flex-col items-center justify-center py-8 md:py-10 text-center">
+                <div className="p-3 bg-emerald-50 rounded-full text-emerald-600 mb-2">
                   <ShoppingCart className="w-6 h-6" />
                 </div>
                 <p className="text-xs font-bold text-slate-700">Tu carrito está vacío</p>
                 <p className="text-[10px] text-slate-400 max-w-xs mt-1">
-                  Haz clic en los productos del catálogo de la izquierda para agregarlos al checkout.
+                  Haz clic en los productos del catálogo o utiliza la Calculadora Rápida para sumar importes libres.
                 </p>
+                
+                <button
+                  type="button"
+                  onClick={() => setIsCalculatorOpen(true)}
+                  className="mt-3.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 font-sans"
+                >
+                  <Calculator className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Calculadora / Venta Rápida</span>
+                </button>
               </div>
             ) : (
               <div className="overflow-y-auto max-h-[145px] xl:max-h-[180px] divide-y divide-slate-100 mt-1 pr-1">
@@ -2100,6 +2210,266 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
               </button>
             </div>
             
+          </div>
+        </div>
+      )}
+
+      {/* QUICK CALCULATOR / EXPRESS SALE MODAL */}
+      {isCalculatorOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 flex flex-col my-auto">
+            
+            {/* Header */}
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold font-sans text-white tracking-tight flex items-center gap-2">
+                    <span>Calculadora & Venta Rápida</span>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
+                      EXPRESS
+                    </span>
+                  </h3>
+                  <p className="text-[10px] text-slate-300 font-medium font-sans mt-0.5">
+                    Facturación rápida sin necesidad de buscar productos en catálogo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCalculatorOpen(false)}
+                className="p-1.5 hover:bg-slate-700/60 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 max-h-[85vh] overflow-y-auto">
+              
+              {/* Display & Math Expression Input Screen */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 shadow-inner flex flex-col justify-between space-y-2">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono font-semibold">
+                  <span className="flex items-center gap-1 text-emerald-400">
+                    <Sparkles className="w-3 h-3" />
+                    <span>OPERACIÓN LIBRE (EJ: 120+50000+250)</span>
+                  </span>
+                  {calcExpression && (
+                    <button
+                      type="button"
+                      onClick={() => setCalcExpression('')}
+                      className="text-slate-400 hover:text-rose-400 transition-colors uppercase font-bold text-[10px] cursor-pointer"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  type="text"
+                  value={calcExpression}
+                  onChange={(e) => setCalcExpression(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddQuickItemToCart(false);
+                    }
+                  }}
+                  placeholder="0 + 0"
+                  autoFocus
+                  className="w-full bg-transparent text-right font-mono text-lg sm:text-xl font-bold text-emerald-300 focus:outline-hidden placeholder-slate-700 tracking-wider"
+                />
+
+                <div className="flex items-baseline justify-between border-t border-slate-800/80 pt-2 mt-1">
+                  <span className="text-[11px] text-slate-400 font-bold font-sans">TOTAL A FACTURAR:</span>
+                  <span className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight">
+                    ${calcEvaluatedTotal.toLocaleString('es-AR')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Description & Presets */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <label className="font-bold text-slate-700 font-sans flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Descripción en Comprobante / Ticket</span>
+                  </label>
+                </div>
+
+                <input
+                  type="text"
+                  value={calcDescription}
+                  onChange={(e) => setCalcDescription(e.target.value)}
+                  placeholder="Ej: Venta Rápida / Varios"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                />
+
+                {/* Quick Preset Description Chips */}
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {[
+                    'Venta Rápida / Varios',
+                    'Mercadería Varias',
+                    'Golosinas / Almacén',
+                    'Kiosco / Cigarrillos',
+                    'Ferretería'
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCalcDescription(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-sans transition-all cursor-pointer ${
+                        calcDescription === preset
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Interactive Virtual Calculator Keypad Grid */}
+              <div className="grid grid-cols-4 gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('C')}
+                  className="p-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-mono font-black rounded-xl text-sm transition-all active:scale-95 cursor-pointer border border-rose-200/60 shadow-xxs"
+                >
+                  C
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('BACKSPACE')}
+                  className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono font-bold rounded-xl text-xs transition-all active:scale-95 cursor-pointer border border-slate-200 flex items-center justify-center shadow-xxs"
+                  title="Borrar último carácter"
+                >
+                  <Delete className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('/')}
+                  className="p-3 bg-slate-100 hover:bg-emerald-100 text-emerald-800 font-mono font-black rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  ÷
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('*')}
+                  className="p-3 bg-slate-100 hover:bg-emerald-100 text-emerald-800 font-mono font-black rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  ×
+                </button>
+
+                {['7', '8', '9'].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleCalcKeyPress(num)}
+                    className="p-3 bg-white hover:bg-slate-50 text-slate-800 font-mono font-bold rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('-')}
+                  className="p-3 bg-slate-100 hover:bg-emerald-100 text-emerald-800 font-mono font-black rounded-xl text-lg transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  -
+                </button>
+
+                {['4', '5', '6'].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleCalcKeyPress(num)}
+                    className="p-3 bg-white hover:bg-slate-50 text-slate-800 font-mono font-bold rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('+')}
+                  className="p-3 bg-slate-100 hover:bg-emerald-100 text-emerald-800 font-mono font-black rounded-xl text-lg transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  +
+                </button>
+
+                {['1', '2', '3'].map((num) => (
+                  <button
+                    key={num}
+                    type="button"
+                    onClick={() => handleCalcKeyPress(num)}
+                    className="p-3 bg-white hover:bg-slate-50 text-slate-800 font-mono font-bold rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('=')}
+                  className="p-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-mono font-black rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-emerald-300 shadow-xxs"
+                >
+                  =
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('0')}
+                  className="p-3 bg-white hover:bg-slate-50 text-slate-800 font-mono font-bold rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  0
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('00')}
+                  className="p-3 bg-white hover:bg-slate-50 text-slate-800 font-mono font-bold rounded-xl text-sm transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  00
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('.')}
+                  className="p-3 bg-white hover:bg-slate-50 text-slate-800 font-mono font-bold rounded-xl text-base transition-all active:scale-95 cursor-pointer border border-slate-200 shadow-xxs"
+                >
+                  .
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCalcKeyPress('+')}
+                  className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white font-mono font-black rounded-xl text-lg transition-all active:scale-95 cursor-pointer shadow-md shadow-emerald-600/20"
+                >
+                  +
+                </button>
+              </div>
+
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleAddQuickItemToCart(false)}
+                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-sm"
+              >
+                <Plus className="w-4 h-4 text-emerald-400" />
+                <span>Agregar al POS (${calcEvaluatedTotal.toLocaleString('es-AR')})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleAddQuickItemToCart(true)}
+                className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-xl transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer font-sans shadow-md shadow-emerald-600/20 uppercase tracking-wide"
+              >
+                <Zap className="w-4 h-4 text-amber-300" />
+                <span>Cobrar Directo</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}
