@@ -9,6 +9,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased] - 2026-07-24
 
+### Agregado / Mejorado
+- **Modificación y Horario Personalizado de Empleados (`Employees.tsx`)**:
+  1. **Configuración de Horario Personalizado**: Se reemplazó el menú desplegable rígido por un selector flexible que incluye los turnos estándar (Mañana, Tarde, Noche, Rotativo) y la opción **"✏️ Configurar Horario Personalizado..."**. Permite especificar cualquier rango horario (ej. `09:00 - 17:00`, `10:00 a 18:00 (Lunes a Viernes)`, `08:00 - 12:00 / 16:00 - 20:00`) o utilizar botones de atajo rápido para precompletar horarios comunes en 1 clic.
+  2. **Acceso Directo a Modificación de Turno desde la Tarjeta**: Se añadió el botón **"✏️ Modificar"** directamente en el bloque de información de turno de cada ficha de empleado en la Nómina de Personal, facilitando la edición inmediata sin buscar en menús.
+  3. **Flexibilidad en Inicio Manual de Turno**: Se actualizó la ventana modal de apertura de turno manual para aceptar horarios personalizados de forma dinámica.
+
 ### Corregido
 - **Edición Interactiva y Corrección de Medio de Pago de Ventas (`Reports.tsx`)**:
   1. **Selector de Medio de Pago en Tabla e Historial**: Se habilitó un selector interactivo (`<select>`) en la columna "Medio de Pago" del historial de ventas y en la ventana modal del ticket duplicado. Permite a los dueños y administradores cambiar en un solo clic el método de pago de cualquier venta ya registrada (ej. cambiar de *Efectivo* a *Transferencia* o *MercadoPago*).
