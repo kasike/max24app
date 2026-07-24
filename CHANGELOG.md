@@ -10,6 +10,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Corregido
+- **Edición Interactiva y Corrección de Medio de Pago de Ventas (`Reports.tsx`)**:
+  1. **Selector de Medio de Pago en Tabla e Historial**: Se habilitó un selector interactivo (`<select>`) en la columna "Medio de Pago" del historial de ventas y en la ventana modal del ticket duplicado. Permite a los dueños y administradores cambiar en un solo clic el método de pago de cualquier venta ya registrada (ej. cambiar de *Efectivo* a *Transferencia* o *MercadoPago*).
+  2. **Actualización Automática e Inmediata en Firestore**: Al modificar el medio de pago, el cambio se persiste de inmediato en la subcolección `sales` de Firestore y se recalculan en tiempo real los totales de *Efectivo en Caja*, *Transferencias / Banco* y *Mercado Pago / QR* sin perder ningún dato.
+  3. **Lógica Flexible de Clasificación (`dailySummary`)**: Se hizo tolerante la categorización de medios de pago en la vista de reportes para reconocer sinónimos de transferencias, bancos, tarjetas o fiado en caso de variaciones en el texto guardado.
 - **Sincronización en Tiempo Real de Ventas y Solución de Muestro $0 en Reportes (`App.tsx` & `Reports.tsx`)**:
   1. **Suscripción Reactiva Firebase `onSnapshot`**: Se agregó un listener asíncrono en tiempo real sobre la subcolección `sales` de Firestore en `App.tsx`. Cualquier venta registrada desde otro celular o computadora (por el supervisor o cajeros con el POS o Calculadora Express) se transmite e impacta automáticamente en la pantalla del dueño sin necesidad de refrescar la página.
   2. **Alineación de Zona Horaria Local (`getLocalDateStr`)**: Se reemplazó la conversión `.toISOString().split('T')[0]` (que usaba hora UTC) por un formateador de fecha local en `Reports.tsx`. Esto resolvió el problema por el cual las ventas hechas al atardecer/noche en Argentina (UTC-3) eran interpretadas con fecha del día siguiente en UTC, provocando que figuraran en `$0` al consultar el filtro "Hoy".

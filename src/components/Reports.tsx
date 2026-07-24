@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { Sale, Product, StoreSettings, CashierSession } from '../types';
 import { db } from '../firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 
 interface ReportsProps {
   sales: Sale[];
@@ -132,6 +132,34 @@ export default function Reports({
 
   const [salesSearch, setSalesSearch] = useState('');
   const [selectedHistoricalSale, setSelectedHistoricalSale] = useState<Sale | null>(null);
+  const [updatingSaleId, setUpdatingSaleId] = useState<string | null>(null);
+
+  // Change Payment Method of a registered sale directly in Firestore and UI
+  const handleUpdateSalePaymentMethod = async (saleId: string, newMethod: Sale['paymentMethod']) => {
+    setUpdatingSaleId(saleId);
+    try {
+      if (activeStoreEmail && activeStoreEmail !== 'global') {
+        const saleRef = doc(db, 'storeSettings', activeStoreEmail, 'sales', saleId);
+        await setDoc(saleRef, { paymentMethod: newMethod }, { merge: true });
+      }
+
+      if (selectedHistoricalSale && selectedHistoricalSale.id === saleId) {
+        setSelectedHistoricalSale(prev => prev ? { ...prev, paymentMethod: newMethod } : null);
+      }
+
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
+      const now = new Date();
+      setLastSyncTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`);
+    } catch (e: any) {
+      console.error("Error al actualizar medio de pago:", e);
+      alert("Error al actualizar el medio de pago: " + (e.message || e));
+    } finally {
+      setUpdatingSaleId(null);
+    }
+  };
 
   // Z-Report Ticket Modal State
   const [selectedZReportSession, setSelectedZReportSession] = useState<CashierSession | null>(null);
@@ -276,21 +304,18 @@ export default function Reports({
     let creditAccountSales = 0;
 
     dateFilteredSales.forEach(s => {
-      if (s.paymentMethod === 'Efectivo') {
+      const pm = (s.paymentMethod || '').toLowerCase();
+      if (pm.includes('efectivo')) {
         cashSales += s.total;
-      } else if (s.paymentMethod === 'MercadoPago' || s.paymentMethod === 'Pago Móvil') {
+      } else if (pm.includes('mercadopago') || pm.includes('pago móvil') || pm.includes('qr')) {
         qrSales += s.total;
-      } else if (s.paymentMethod === 'Transferencia') {
+      } else if (pm.includes('transfer') || pm.includes('banco') || pm.includes('cbu')) {
         transferSales += s.total;
-      } else if (
-        s.paymentMethod === 'Tarjeta de Crédito' || 
-        s.paymentMethod === 'Tarjeta de Débito'
-      ) {
+      } else if (pm.includes('tarjeta') || pm.includes('débito') || pm.includes('debito') || pm.includes('crédito') || pm.includes('credito')) {
         cardSales += s.total;
-      } else if (s.paymentMethod === 'Cuenta Corriente') {
+      } else if (pm.includes('cuenta corriente') || pm.includes('fiado') || pm.includes('cta')) {
         creditAccountSales += s.total;
       } else {
-        // Fallback default
         cashSales += s.total;
       }
     });
@@ -1259,9 +1284,30 @@ export default function Reports({
                         ${sale.total.toLocaleString('es-AR')}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 bg-slate-150/60 text-slate-700 px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px]">
-                          {sale.paymentMethod === 'Efectivo' ? '💵' : sale.paymentMethod === 'Cuenta Corriente' ? '🤝' : '💳'} {sale.paymentMethod}
-                        </span>
+                        <select
+                          value={sale.paymentMethod}
+                          disabled={updatingSaleId === sale.id}
+                          onChange={(e) => handleUpdateSalePaymentMethod(sale.id, e.target.value as Sale['paymentMethod'])}
+                          className={`
+                            px-2.5 py-1 rounded-xl text-[10.5px] font-extrabold transition-all cursor-pointer border shadow-xxs outline-hidden
+                            ${sale.paymentMethod === 'Efectivo'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                              : sale.paymentMethod === 'Transferencia'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
+                              : sale.paymentMethod === 'MercadoPago' || sale.paymentMethod === 'Pago Móvil'
+                              ? 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100'
+                              : 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100'
+                            }
+                          `}
+                          title="Haz clic para modificar el medio de pago de esta venta"
+                        >
+                          <option value="Efectivo">💵 Efectivo</option>
+                          <option value="Transferencia">🏦 Transferencia</option>
+                          <option value="MercadoPago">📱 MercadoPago / QR</option>
+                          <option value="Tarjeta de Débito">💳 T. Débito</option>
+                          <option value="Tarjeta de Crédito">💳 T. Crédito</option>
+                          <option value="Cuenta Corriente">🤝 Cta Cte</option>
+                        </select>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1.5 text-slate-650">
@@ -1651,10 +1697,22 @@ export default function Reports({
                 </div>
               </div>
 
-              <div className="mt-3 bg-slate-50 p-2 rounded-lg border border-slate-150/40 text-[10px]">
+              <div className="mt-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 text-[10px]">
                 <div className="flex items-center justify-between">
-                  <span>Método Pago:</span>
-                  <span className="font-semibold">{selectedHistoricalSale.paymentMethod}</span>
+                  <span className="font-semibold text-slate-600">Método Pago:</span>
+                  <select
+                    value={selectedHistoricalSale.paymentMethod}
+                    disabled={updatingSaleId === selectedHistoricalSale.id}
+                    onChange={(e) => handleUpdateSalePaymentMethod(selectedHistoricalSale.id, e.target.value as Sale['paymentMethod'])}
+                    className="bg-white border border-slate-300 font-bold text-slate-900 text-[10px] rounded-lg px-2 py-1 cursor-pointer focus:ring-2 focus:ring-orange-500/20 focus:outline-hidden"
+                  >
+                    <option value="Efectivo">💵 Efectivo</option>
+                    <option value="Transferencia">🏦 Transferencia</option>
+                    <option value="MercadoPago">📱 MercadoPago / QR</option>
+                    <option value="Tarjeta de Débito">💳 Tarjeta Débito</option>
+                    <option value="Tarjeta de Crédito">💳 Tarjeta Crédito</option>
+                    <option value="Cuenta Corriente">🤝 Cuenta Corriente</option>
+                  </select>
                 </div>
                 {selectedHistoricalSale.paymentMethod === 'Efectivo' && (
                   <>
