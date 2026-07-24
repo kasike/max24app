@@ -266,7 +266,7 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
       const normalizedUser = username.trim().toLowerCase();
       const normalizedPass = password.trim();
 
-      if (loginTab === 'empleado' && !normalizedStore) {
+      if (mainPortalTab === 'comercio' && loginTab === 'empleado' && !normalizedStore) {
         setLoginError('El ID Único de Tienda o Código de Comercio es obligatorio.');
         setIsLoggingIn(false);
         return;
@@ -284,119 +284,191 @@ export default function Login({ employees, onLoginSuccess, onRegisterAdmin, onBa
 
       let targetUser: Employee | null = null;
 
-      if (loginTab === 'comercio') {
-        // Find merchant / non-employee roles (Administrador, Comprador, Proveedor, Soporte, SupportCollaborator)
-        targetUser = candidates.find(emp => emp.role === 'Administrador' || emp.role === 'Comprador' || emp.role === 'Proveedor' || emp.role === 'Soporte' || emp.role === 'SupportCollaborator') || null;
+      // STRICT ROLE VALIDATION BASED ON ACTIVE PORTAL TAB (RBAC)
+      if (mainPortalTab === 'proveedor') {
+        // Strict role validation for Proveedores B2B
+        targetUser = candidates.find(emp => emp.role === 'Proveedor') || null;
 
-        // If matched but is employee, block and redirect
-        const isEmployeeMatch = candidates.some(emp => emp.role === 'Cajero' || emp.role === 'Supervisor' || emp.role === 'Gerente');
-        if (!targetUser && isEmployeeMatch) {
-          setLoginError('Esta cuenta corresponde a un empleado. Por favor, inicia sesión en la pestaña "Ingreso Empleados" con tu ID de Tienda.');
+        if (!targetUser) {
+          // Check if credentials match another role or admin account
+          const isAdminMatch = candidates.some(emp => emp.role === 'Administrador' || emp.role === 'Soporte' || emp.role === 'SupportCollaborator') ||
+            (normalizedUser === 'pezziniarg@gmail.com' && (normalizedPass === 'Max24@2626' || normalizedPass === 'max24@2626')) ||
+            ((normalizedUser === 'bigmax24h7@gmail.com' || normalizedUser === 'prueba') && (normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@' || normalizedPass === 'prueba'));
+          
+          const isBuyerMatch = candidates.some(emp => emp.role === 'Comprador');
+          const isEmployeeMatch = candidates.some(emp => emp.role === 'Cajero' || emp.role === 'Supervisor' || emp.role === 'Gerente');
+
+          if (isAdminMatch) {
+            setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Comercio. Por favor, inicia sesión desde la pestaña "Comercio POS".');
+          } else if (isBuyerMatch) {
+            setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Comprador. Por favor, inicia sesión desde la pestaña "Compradores".');
+          } else if (isEmployeeMatch) {
+            setLoginError('⛔ Acceso denegado. Esta cuenta corresponde a un empleado. Por favor, inicia sesión desde la pestaña "Comercio POS".');
+          } else {
+            setLoginError('⛔ Acceso denegado. Esta cuenta no está registrada como Proveedor B2B. Inicia sesión en el portal correspondiente.');
+          }
           setIsLoggingIn(false);
           return;
         }
+      } else if (mainPortalTab === 'comprador') {
+        // Strict role validation for Compradores / Clientes
+        targetUser = candidates.find(emp => emp.role === 'Comprador') || null;
 
-        // Foolproof Owner Bypass for immediate, error-free entry
-        if (!targetUser && normalizedUser === 'pezziniarg@gmail.com' && normalizedPass === 'Max24@2626') {
-          const activeAdmin = employees.find(e => e.email.trim().toLowerCase() === 'pezziniarg@gmail.com') || {
-            id: 'emp-1',
-            name: 'Carlos Daniel Pérez',
-            email: 'pezziniarg@gmail.com',
-            role: 'Administrador' as const,
-            status: 'Activo' as const,
-            shift: 'Mañana',
-            joinedDate: '2025-01-15',
-            username: 'pezziniarg@gmail.com',
-            password: 'Max24@2626',
-            phone: '+54 11 5566-7788',
-            salary: 1250000,
-            emergencyContact: 'María Pérez (Madre) - +54 11 2233-4455'
-          };
-          targetUser = {
-            ...activeAdmin,
-            status: 'Activo',
-            password: 'Max24@2626'
-          };
-        }
+        if (!targetUser) {
+          const isAdminMatch = candidates.some(emp => emp.role === 'Administrador' || emp.role === 'Soporte' || emp.role === 'SupportCollaborator') ||
+            (normalizedUser === 'pezziniarg@gmail.com' && (normalizedPass === 'Max24@2626' || normalizedPass === 'max24@2626')) ||
+            ((normalizedUser === 'bigmax24h7@gmail.com' || normalizedUser === 'prueba') && (normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@' || normalizedPass === 'prueba'));
+          
+          const isSupplierMatch = candidates.some(emp => emp.role === 'Proveedor');
+          const isEmployeeMatch = candidates.some(emp => emp.role === 'Cajero' || emp.role === 'Supervisor' || emp.role === 'Gerente');
 
-        if (!targetUser && (normalizedUser === 'prueba' || normalizedUser === 'bigmax24h7@gmail.com') && (normalizedPass === 'prueba' || normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@')) {
-          if (normalizedUser === 'bigmax24h7@gmail.com' || normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@') {
-            targetUser = {
-              id: 'emp-bigmax',
-              name: 'Administrador BigMAX',
-              email: 'bigmax24h7@gmail.com',
-              role: 'Administrador' as const,
-              status: 'Activo' as const,
-              shift: 'Rotativo',
-              joinedDate: '2026-06-20',
-              username: 'bigmax24h7@gmail.com',
-              password: 'Bigmax2626@',
-              phone: '+54 11 7766-5544',
-              salary: 1500000,
-              emergencyContact: 'Soporte Técnico - +54 11 5555-5555'
-            };
+          if (isAdminMatch) {
+            setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Comercio. Por favor, inicia sesión desde la pestaña "Comercio POS".');
+          } else if (isSupplierMatch) {
+            setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Proveedor B2B. Por favor, inicia sesión desde la pestaña "Proveedores".');
+          } else if (isEmployeeMatch) {
+            setLoginError('⛔ Acceso denegado. Esta cuenta corresponde a un empleado. Por favor, inicia sesión desde la pestaña "Comercio POS".');
           } else {
-            targetUser = {
-              id: 'emp-bigmax',
-              name: 'Administrador Demo',
-              email: 'prueba@max24app.com',
-              role: 'Administrador' as const,
-              status: 'Activo' as const,
-              shift: 'Rotativo',
-              joinedDate: '2026-06-20',
-              username: 'prueba',
-              password: 'prueba',
-              phone: '+54 11 7766-5544',
-              salary: 1500000,
-              emergencyContact: 'Soporte Técnico - +54 11 5555-5555'
-            };
+            setLoginError('⛔ Acceso denegado. Esta cuenta no está registrada como Comprador. Inicia sesión en el portal correspondiente.');
           }
+          setIsLoggingIn(false);
+          return;
         }
       } else {
-        // loginTab === 'empleado'
-        // Filter candidates to ensure we only look at employees
-        const employeeCandidates = candidates.filter(emp => emp.role === 'Cajero' || emp.role === 'Supervisor' || emp.role === 'Gerente');
-        
-        // If they put an Admin credential here, redirect them
-        const isAdminMatch = candidates.some(emp => emp.role === 'Administrador' || emp.role === 'Comprador' || emp.role === 'Proveedor');
-        if (employeeCandidates.length === 0 && isAdminMatch) {
-          setLoginError('Esta cuenta corresponde al Dueño o Administrador del Comercio. Por favor, inicia sesión en la pestaña "Ingreso Comercio / Dueños".');
-          setIsLoggingIn(false);
-          return;
-        }
+        // mainPortalTab === 'comercio'
+        if (loginTab === 'comercio') {
+          // Find merchant / owner roles (Administrador, Soporte, SupportCollaborator)
+          targetUser = candidates.find(emp => emp.role === 'Administrador' || emp.role === 'Soporte' || emp.role === 'SupportCollaborator') || null;
 
-        // Filter based on store match
-        for (const emp of employeeCandidates) {
-          const storeEmail = (emp.storeEmail || emp.email || 'global').trim().toLowerCase();
-          
-          // A. If storeEmail matches normalizedStore directly
-          if (storeEmail === normalizedStore) {
-            targetUser = emp;
-            break;
-          }
-          
-          // B. If storeEmail starts with normalizedStore or matches prefix
-          const prefix = storeEmail.split('@')[0];
-          if (prefix === normalizedStore || prefix.includes(normalizedStore) || normalizedStore.includes(prefix)) {
-            targetUser = emp;
-            break;
+          // Foolproof Owner Bypass for immediate, error-free entry
+          if (!targetUser && normalizedUser === 'pezziniarg@gmail.com' && (normalizedPass === 'Max24@2626' || normalizedPass === 'max24@2626')) {
+            const activeAdmin = employees.find(e => e.email.trim().toLowerCase() === 'pezziniarg@gmail.com') || {
+              id: 'emp-1',
+              name: 'Carlos Daniel Pérez',
+              email: 'pezziniarg@gmail.com',
+              role: 'Administrador' as const,
+              status: 'Activo' as const,
+              shift: 'Mañana',
+              joinedDate: '2025-01-15',
+              username: 'pezziniarg@gmail.com',
+              password: 'Max24@2626',
+              phone: '+54 11 5566-7788',
+              salary: 1250000,
+              emergencyContact: 'María Pérez (Madre) - +54 11 2233-4455'
+            };
+            targetUser = {
+              ...activeAdmin,
+              status: 'Activo',
+              password: 'Max24@2626'
+            };
           }
 
-          // C. Fetch actual storeSettings from Firestore to check storeCode
-          try {
-            const { doc, getDoc } = await import('firebase/firestore');
-            const { db } = await import('../firebase');
-            const settingsSnap = await getDoc(doc(db, 'storeSettings', storeEmail));
-            if (settingsSnap.exists()) {
-              const settingsData = settingsSnap.data();
-              const code = (settingsData.storeCode || '').trim().toLowerCase();
-              if (code && (code === normalizedStore || code.includes(normalizedStore) || normalizedStore.includes(code))) {
-                targetUser = emp;
-                break;
-              }
+          if (!targetUser && (normalizedUser === 'prueba' || normalizedUser === 'bigmax24h7@gmail.com') && (normalizedPass === 'prueba' || normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@')) {
+            if (normalizedUser === 'bigmax24h7@gmail.com' || normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@') {
+              targetUser = {
+                id: 'emp-bigmax',
+                name: 'Administrador BigMAX',
+                email: 'bigmax24h7@gmail.com',
+                role: 'Administrador' as const,
+                status: 'Activo' as const,
+                shift: 'Rotativo',
+                joinedDate: '2026-06-20',
+                username: 'bigmax24h7@gmail.com',
+                password: 'Bigmax2626@',
+                phone: '+54 11 7766-5544',
+                salary: 1500000,
+                emergencyContact: 'Soporte Técnico - +54 11 5555-5555'
+              };
+            } else {
+              targetUser = {
+                id: 'emp-bigmax',
+                name: 'Administrador Demo',
+                email: 'prueba@max24app.com',
+                role: 'Administrador' as const,
+                status: 'Activo' as const,
+                shift: 'Rotativo',
+                joinedDate: '2026-06-20',
+                username: 'prueba',
+                password: 'prueba',
+                phone: '+54 11 7766-5544',
+                salary: 1500000,
+                emergencyContact: 'Soporte Técnico - +54 11 5555-5555'
+              };
             }
-          } catch (err) {
-            console.error("Error fetching store settings for validation:", err);
+          }
+
+          if (!targetUser) {
+            const isSupplierMatch = candidates.some(emp => emp.role === 'Proveedor');
+            const isBuyerMatch = candidates.some(emp => emp.role === 'Comprador');
+            const isEmployeeMatch = candidates.some(emp => emp.role === 'Cajero' || emp.role === 'Supervisor' || emp.role === 'Gerente');
+
+            if (isSupplierMatch) {
+              setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Proveedor B2B. Por favor, inicia sesión desde la pestaña "Proveedores".');
+            } else if (isBuyerMatch) {
+              setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Comprador. Por favor, inicia sesión desde la pestaña "Compradores".');
+            } else if (isEmployeeMatch) {
+              setLoginError('Esta cuenta corresponde a un empleado. Por favor, inicia sesión en la sub-pestaña "Cajero / Empleado (POS)" con tu ID de Tienda.');
+            } else {
+              setLoginError('Usuario o Contraseña de Comercio incorrectos. Verifique sus credenciales.');
+            }
+            setIsLoggingIn(false);
+            return;
+          }
+        } else {
+          // loginTab === 'empleado'
+          const employeeCandidates = candidates.filter(emp => emp.role === 'Cajero' || emp.role === 'Supervisor' || emp.role === 'Gerente');
+          
+          const isAdminMatch = candidates.some(emp => emp.role === 'Administrador' || emp.role === 'Soporte' || emp.role === 'SupportCollaborator') ||
+            (normalizedUser === 'pezziniarg@gmail.com' && (normalizedPass === 'Max24@2626' || normalizedPass === 'max24@2626')) ||
+            ((normalizedUser === 'bigmax24h7@gmail.com' || normalizedUser === 'prueba') && (normalizedPass === 'Bigmax2626@' || normalizedPass === 'bigmax2626@' || normalizedPass === 'prueba'));
+          
+          const isSupplierMatch = candidates.some(emp => emp.role === 'Proveedor');
+          const isBuyerMatch = candidates.some(emp => emp.role === 'Comprador');
+
+          if (employeeCandidates.length === 0) {
+            if (isAdminMatch) {
+              setLoginError('Esta cuenta corresponde al Dueño o Administrador del Comercio. Por favor, inicia sesión en la sub-pestaña "Dueño / Comercio".');
+            } else if (isSupplierMatch) {
+              setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Proveedor B2B. Por favor, inicia sesión desde la pestaña "Proveedores".');
+            } else if (isBuyerMatch) {
+              setLoginError('⛔ Acceso denegado. Esta cuenta está registrada como Comprador. Por favor, inicia sesión desde la pestaña "Compradores".');
+            } else {
+              setLoginError('ID de Tienda, Usuario o Contraseña de Empleado incorrectos. Verifique sus credenciales.');
+            }
+            setIsLoggingIn(false);
+            return;
+          }
+
+          // Filter based on store match
+          for (const emp of employeeCandidates) {
+            const storeEmail = (emp.storeEmail || emp.email || 'global').trim().toLowerCase();
+            
+            if (storeEmail === normalizedStore) {
+              targetUser = emp;
+              break;
+            }
+            
+            const prefix = storeEmail.split('@')[0];
+            if (prefix === normalizedStore || prefix.includes(normalizedStore) || normalizedStore.includes(prefix)) {
+              targetUser = emp;
+              break;
+            }
+
+            try {
+              const { doc, getDoc } = await import('firebase/firestore');
+              const { db } = await import('../firebase');
+              const settingsSnap = await getDoc(doc(db, 'storeSettings', storeEmail));
+              if (settingsSnap.exists()) {
+                const settingsData = settingsSnap.data();
+                const code = (settingsData.storeCode || '').trim().toLowerCase();
+                if (code && (code === normalizedStore || code.includes(normalizedStore) || normalizedStore.includes(code))) {
+                  targetUser = emp;
+                  break;
+                }
+              }
+            } catch (err) {
+              console.error("Error fetching store settings for validation:", err);
+            }
           }
         }
       }

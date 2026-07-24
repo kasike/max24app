@@ -9,7 +9,15 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
 ## [Unreleased] - 2026-07-23
 
+### Corregido
+- **Control de Acceso por Roles (RBAC) en Pestaña de Proveedores B2B y Portales**: Reparado el fallo de seguridad en `Login.tsx` donde credenciales pertenecientes a un Comercio/Administrador (ej. `bigmax24h7@gmail.com`) permitían iniciar sesión desde la pestaña "Proveedores B2B" e ingresar al panel del comercio. Se implementó una verificación estricta de rol (`mainPortalTab`), bloqueando la autenticación cruzada con alertas explicativas claras (ej. `⛔ Acceso denegado. Esta cuenta está registrada como Comercio. Por favor, inicia sesión desde la pestaña 'Comercio POS'.`).
+
 ### Añadido
+- **Filtro Rápido "🟢 Abiertos Ahora" + Orden por Geolocalización GPS**: Interruptor dinámico en `BuyerPortal.tsx` que oculta comercios cerrados y despliega exclusivamente negocios activos (`checkIsStoreOpen`). Integrado con `navigator.geolocation` para calcular distancias en km (fórmula Haversine), etiquetar tarjetas (`📍 a 1.2 km`) y ordenar los resultados de menor a mayor cercanía.
+- **Banner Nocturno Automatizado (Smart Night Banner)**: Cartel promocional inteligente que se despliega automáticamente en horario nocturno/madrugada (22:00 a 06:00 hs) invitando al usuario a filtrar comercios 24hs o abiertos en tiempo real.
+- **Navegación Directa con Google Maps ("Ver mapa")**: Botón e hipervínculo directo en cada tarjeta de comercio para abrir la dirección exacta de la sucursal en Google Maps.
+- **Indicador Visual en Tiempo Real (Abierto / Cerrado) en Tarjetas de Comercios**: Implementación de badge de estado circular (verde esmeralda animado `#22C55E` para sucursales abiertas vs rojo carmín `#EF4444` para cerradas) en `BuyerPortal.tsx`, calculado en tiempo real con la función `checkIsStoreOpen` que evalúa los días, horarios detallados (`detailedHours`) y banderas de cierre manual.
+- **Jerarquía y Simplificación UX en Tarjetas de Comercio**: Agrupación visual optimizada de datos (Nombre, Código de Sucursal, Dirección, Teléfono, Horario) y botones de acción rápida e intuitiva (**Comprar**, **Escáner**, **Favorito** y **WhatsApp**).
 - **Integración Real de Google OAuth en Portal de Compradores**: Implementación de `GoogleAuthProvider` y `signInWithPopup` de Firebase Auth para solicitar autorización directa a Google y sincronizar el correo de Gmail real y nombre del usuario.
 - **Edición de Correo en Perfil de Comprador**: Habilitación del campo de correo electrónico de ingreso en el panel de perfil del comprador para permitir actualización directa en Firestore.
 - **Rediseño Arquitectónico de Pantalla de Login por Portales de Rol**: Separación limpia en 3 portales dedicados en `/src/components/Login.tsx`:

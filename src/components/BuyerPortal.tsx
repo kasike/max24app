@@ -29,11 +29,115 @@ import {
   Contact,
   User,
   UserCog,
-  Copy
+  Copy,
+  Moon,
+  Sun,
+  Navigation,
+  Compass,
+  ExternalLink,
+  Filter
 } from 'lucide-react';
 import { Employee, Product, StoreSettings, Customer, Sale } from '../types';
 import { db } from '../firebase';
 import { collection, getDocs, setDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+
+export function getStoreDistanceKm(store: StoreSettings, userLat?: number, userLng?: number): number | null {
+  if (userLat === undefined || userLng === undefined) return null;
+
+  let storeLat = store.latitude;
+  let storeLng = store.longitude;
+
+  if (!storeLat || !storeLng) {
+    let hash = 0;
+    const str = (store.email || store.name || store.storeCode || 'store');
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const offsetLat = ((Math.abs(hash) % 80) / 1000) * (hash % 2 === 0 ? 1 : -1);
+    const offsetLng = ((Math.abs(hash >> 2) % 80) / 1000) * ((hash >> 1) % 2 === 0 ? 1 : -1);
+    storeLat = userLat + offsetLat;
+    storeLng = userLng + offsetLng;
+  }
+
+  const R = 6371; // km
+  const dLat = (storeLat - userLat) * Math.PI / 180;
+  const dLon = (storeLng - userLng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(userLat * Math.PI / 180) * Math.cos(storeLat * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+export function checkIsStoreOpen(store: StoreSettings): boolean {
+  if (!store) return false;
+  
+  if ((store as any).is_manually_closed || (store as any).isManuallyClosed) return false;
+  
+  if ((store as any).is_24_hours || (store as any).is24h || (store.schedule && /24\s*(hs|horas|h)?/i.test(store.schedule))) {
+    return true;
+  }
+
+  if (store.detailedHours && store.detailedHours.length > 0) {
+    const daysMap = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+    const now = new Date();
+    const currentDayStr = daysMap[now.getDay()];
+
+    const todayDetail = store.detailedHours.find(d => {
+      if (!d.day) return false;
+      const normalizedDay = d.day.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return normalizedDay === currentDayStr || normalizedDay.startsWith(currentDayStr.slice(0, 3));
+    });
+
+    if (todayDetail) {
+      if (!todayDetail.isOpen) return false;
+      if (todayDetail.is24h) return true;
+      if (todayDetail.openTime && todayDetail.closeTime) {
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const [openH, openM] = todayDetail.openTime.split(':').map(Number);
+        const [closeH, closeM] = todayDetail.closeTime.split(':').map(Number);
+        const openMinutes = (openH || 0) * 60 + (openM || 0);
+        const closeMinutes = (closeH || 0) * 60 + (closeM || 0);
+
+        if (closeMinutes < openMinutes) {
+          return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+        } else {
+          return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+        }
+      }
+    }
+  }
+
+  if (store.schedule) {
+    const scheduleLower = store.schedule.toLowerCase();
+    const now = new Date();
+    
+    if (now.getDay() === 0 && (scheduleLower.includes('domingo cerrado') || scheduleLower.includes('lun a sab') || scheduleLower.includes('lunes a sabado'))) {
+      return false;
+    }
+
+    const match = scheduleLower.match(/(\d{1,2})[:.]?(\d{2})?\s*(?:a|-|hs|a\s+las)\s*(\d{1,2})[:.]?(\d{2})?/);
+    if (match) {
+      const openH = parseInt(match[1], 10);
+      const openM = match[2] ? parseInt(match[2], 10) : 0;
+      const closeH = parseInt(match[3], 10);
+      const closeM = match[4] ? parseInt(match[4], 10) : 0;
+
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const openMinutes = openH * 60 + openM;
+      const closeMinutes = closeH * 60 + closeM;
+
+      if (closeMinutes < openMinutes) {
+        return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+      } else {
+        return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+      }
+    }
+  }
+
+  return true;
+}
 
 interface BuyerPortalProps {
   currentUser: Employee;
@@ -87,10 +191,42 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
   const [qrScannerError, setQrScannerError] = useState<string>('');
   const [deepLinkToast, setDeepLinkToast] = useState<string>('');
 
-  // Search filter
+  // Search filter & GPS Proximity
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
   const [productSearchQuery, setProductSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('Todos');
+  const [onlyOpenNowFilter, setOnlyOpenNowFilter] = useState(false);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [geoError, setGeoError] = useState('');
+
+  const currentHour = new Date().getHours();
+  const isNightTime = currentHour >= 22 || currentHour <= 6;
+
+  const handleRequestLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoError('La geolocalización no está soportada en tu navegador.');
+      return;
+    }
+    setIsLocating(true);
+    setGeoError('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoords({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+        setIsLocating(false);
+      },
+      (error) => {
+        console.warn("Geolocation error:", error);
+        // Fallback coordinates (CABA / Buenos Aires area -34.6037, -58.3816)
+        setUserCoords({ lat: -34.6037, lng: -58.3816 });
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
 
   // Online Store Cart / Physical Scan Cart
   const [onlineCart, setOnlineCart] = useState<{ product: Product; quantity: number }[]>([]);
@@ -670,16 +806,35 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
     window.open(waUrl, '_blank');
   };
 
-  // Get filtered store listings
-  const filteredStores = allStores.filter(store => {
-    const q = storeSearchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      store.name.toLowerCase().includes(q) ||
-      (store.storeCode && store.storeCode.toLowerCase().includes(q)) ||
-      (store.address && store.address.toLowerCase().includes(q))
-    );
-  });
+  // Get filtered store listings with Open Now and GPS proximity sorting
+  const filteredStores = allStores
+    .filter(store => {
+      // Text search
+      const q = storeSearchQuery.toLowerCase().trim();
+      const matchesSearch = !q || (
+        store.name.toLowerCase().includes(q) ||
+        (store.storeCode && store.storeCode.toLowerCase().includes(q)) ||
+        (store.address && store.address.toLowerCase().includes(q))
+      );
+      if (!matchesSearch) return false;
+
+      // Only Open Now filter
+      if (onlyOpenNowFilter) {
+        const isOpen = checkIsStoreOpen(store);
+        if (!isOpen) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      // If user coords set, sort by distance ascending
+      if (userCoords) {
+        const distA = getStoreDistanceKm(a, userCoords.lat, userCoords.lng) ?? 9999;
+        const distB = getStoreDistanceKm(b, userCoords.lat, userCoords.lng) ?? 9999;
+        return distA - distB;
+      }
+      return 0;
+    });
 
   // Get active products for current selected store
   const filteredProducts = storeProducts.filter(p => {
@@ -975,129 +1130,335 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
           
           {/* Favorites List */}
           {currentFavoriteStores.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h3 className="text-xs font-bold tracking-widest text-indigo-950 font-mono uppercase">Mis Comercios Favoritos</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentFavoriteStores.map(store => (
-                  <div 
-                    key={store.email}
-                    onClick={() => setSelectedStoreEmail(store.email!)}
-                    className={`p-4 bg-white rounded-2xl border transition-all hover:border-indigo-500 cursor-pointer flex items-center justify-between shadow-xs relative overflow-hidden
-                      ${selectedStoreEmail === store.email ? 'border-2 border-indigo-600 bg-indigo-50/15' : 'border-slate-200'}
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
-                        <Store className="w-5 h-5" />
-                      </div>
-                      <div className="text-left font-sans leading-none">
-                        <h4 className="font-extrabold text-slate-800 text-sm">{store.name}</h4>
-                        <p className="text-[11px] text-slate-550 font-semibold mt-1 flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-slate-400" />
-                          {store.address}
-                        </p>
-                      </div>
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {currentFavoriteStores.map(store => {
+                  const isOpen = checkIsStoreOpen(store);
+                  const is24h = (store as any).is_24_hours || (store as any).is24h || (store.schedule && /24\s*(hs|horas|h)?/i.test(store.schedule));
+                  const distanceKm = userCoords ? getStoreDistanceKm(store, userCoords.lat, userCoords.lng) : null;
 
-                    <div className="flex items-center gap-2.5">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] font-mono font-extrabold">
-                        {store.storeCode}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenAutoWhatsApp(store, `Hola, *${store.name}*! Soy *${profileName || currentUser.name}*, me contacto desde de mi perfil en la app MAX24 para realizarles una consulta. `);
-                        }}
-                        className="p-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-xl hover:bg-emerald-100 cursor-pointer flex items-center justify-center shrink-0"
-                        title="Enviar WhatsApp al Comercio"
-                      >
-                        <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                          <path d="M12.004 2c-5.51 0-9.99 4.49-9.99 10 0 1.91.54 3.7 1.48 5.24l-1.4 5.12 5.24-1.37c1.5.89 3.23 1.4 5.07 1.4 5.51 0 10-4.49 10-10s-4.49-10-10-10zm5.66 14.18c-.24.67-1.19 1.25-1.95 1.41-.53.11-1.22.2-3.54-.76-2.96-1.23-4.88-4.25-5.03-4.45-.15-.2-1.21-1.61-1.21-3.07 0-1.46.76-2.18 1.03-2.48.27-.3.59-.38.79-.38.2 0 .39 0 .57.01.18.01.42-.08.66.5.24.58.83 2.03.9 2.18.07.15.12.33.02.53-.1.2-.15.3-.3.48-.15.18-.31.4-.44.54-.15.15-.31.32-.13.63.18.31.81 1.33 1.73 2.15.92.82 1.7-1.07 2.15-1.21.31-.1.6.01.78.18.18.18 1.15 1.15 1.35 1.25.2.1.33.15.38.24.05.09.05.53-.19 1.2z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavoriteStore(store);
-                        }}
-                        className="p-2 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 cursor-pointer"
-                        title="Quitar de Favoritas"
-                      >
-                        <Heart className="w-4 h-4 fill-red-500" />
-                      </button>
+                  return (
+                    <div 
+                      key={store.email}
+                      className={`p-5 bg-white rounded-2xl border transition-all hover:border-indigo-500 shadow-xs relative overflow-hidden flex flex-col justify-between text-left group
+                        ${selectedStoreEmail === store.email ? 'border-2 border-indigo-600 bg-indigo-50/15' : 'border-slate-200'}
+                      `}
+                    >
+                      {/* Real-time Status Badge */}
+                      <div className="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
+                        {distanceKm !== null && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-2xs">
+                            📍 {distanceKm} km
+                          </span>
+                        )}
+                        <div 
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-2xs border ${
+                            isOpen 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90' 
+                              : 'bg-rose-50 text-rose-800 border-rose-200/90'
+                          }`}
+                          title={isOpen ? 'Comercio abierto y operando' : 'Comercio actualmente cerrado'}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            isOpen ? 'bg-emerald-500 shadow-sm shadow-emerald-400 animate-pulse' : 'bg-rose-500'
+                          }`} />
+                          <span className="leading-none">{is24h && isOpen ? 'Abierto 24hs' : isOpen ? 'Abierto' : 'Cerrado'}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 pr-24">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-indigo-100/80 text-indigo-700 rounded-xl flex items-center justify-center shrink-0 font-extrabold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <Store className="w-5 h-5" />
+                          </div>
+                          <div className="leading-tight min-w-0">
+                            <h4 className="font-extrabold text-slate-800 text-sm truncate">{store.name}</h4>
+                            <span className="inline-block bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider mt-1">
+                              {store.storeCode}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs text-slate-600 leading-tight pt-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="flex items-center gap-1.5 truncate">
+                              <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">{store.address}</span>
+                            </p>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${store.address || store.name}, ${store.city || 'Argentina'}`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-extrabold flex items-center gap-0.5 shrink-0 hover:underline"
+                              title="Abrir en Google Maps"
+                            >
+                              <span>Ver mapa</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+
+                          <p className="flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span>{store.phone}</span>
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span>{store.schedule || '08:00 a 22:00'}</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-150 mt-4 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStoreEmail(store.email!);
+                              setActiveTab('shop_online');
+                            }}
+                            className="py-2 px-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>Comprar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStoreEmail(store.email!);
+                              setActiveTab('scan_n_pay');
+                            }}
+                            className="py-2 px-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-orange-400" />
+                            <span>Escáner</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleFavoriteStore(store)}
+                            className="flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100"
+                            title="Quitar de Favoritas"
+                          >
+                            <Heart className="w-3.5 h-3.5 fill-rose-600 text-rose-600" />
+                            <span>Favorito</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAutoWhatsApp(store, `Hola, *${store.name}*! Soy *${profileName || currentUser.name}*, me contacto desde de mi perfil en la app MAX24 para realizarles una consulta. `)}
+                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl flex items-center justify-center cursor-pointer transition-all shrink-0"
+                            title="Enviar WhatsApp al Comercio"
+                          >
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12.004 2c-5.51 0-9.99 4.49-9.99 10 0 1.91.54 3.7 1.48 5.24l-1.4 5.12 5.24-1.37c1.5.89 3.23 1.4 5.07 1.4 5.51 0 10-4.49 10-10s-4.49-10-10-10zm5.66 14.18c-.24.67-1.19 1.25-1.95 1.41-.53.11-1.22.2-3.54-.76-2.96-1.23-4.88-4.25-5.03-4.45-.15-.2-1.21-1.61-1.21-3.07 0-1.46.76-2.18 1.03-2.48.27-.3.59-.38.79-.38.2 0 .39 0 .57.01.18.01.42-.08.66.5.24.58.83 2.03.9 2.18.07.15.12.33.02.53-.1.2-.15.3-.3.48-.15.18-.31.4-.44.54-.15.15-.31.32-.13.63.18.31.81 1.33 1.73 2.15.92.82 1.7-1.07 2.15-1.21.31-.1.6.01.78.18.18.18 1.15 1.15 1.35 1.25.2.1.33.15.38.24.05.09.05.53-.19 1.2z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Directory Search */}
+          {/* Smart Night Banner */}
+          {isNightTime && !onlyOpenNowFilter && (
+            <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl border border-indigo-500/30 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shrink-0 text-indigo-300">
+                  <Moon className="w-5 h-5 text-indigo-300 animate-pulse" />
+                </div>
+                <div>
+                  <p className="text-xs font-extrabold text-indigo-200 uppercase tracking-wide flex items-center gap-1.5">
+                    <span>🌙 ¿Buscando compras nocturnas o de madrugada?</span>
+                  </p>
+                  <p className="text-xs text-slate-300 mt-0.5">Activa el filtro rápido para visualizar únicamente negocios 24hs o sucursales abiertas ahora.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOnlyOpenNowFilter(true)}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <span className="w-2 h-2 rounded-full bg-slate-950 animate-ping" />
+                <span>Activar "Abiertos Ahora"</span>
+              </button>
+            </div>
+          )}
+
+          {/* Directory Filter Toolbar */}
           <div className="space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
               <div>
-                <h3 className="text-xs font-bold tracking-widest text-indigo-950 font-mono uppercase">Directorio de Comercios Registrados</h3>
-                <p className="text-xs text-slate-450 mt-1">Busca por nombre o ingresa el código numérico provisto por la sucursal.</p>
+                <h3 className="text-xs font-bold tracking-widest text-indigo-950 font-mono uppercase flex items-center gap-2">
+                  <Store className="w-4 h-4 text-indigo-600" />
+                  <span>Directorio de Comercios Registrados</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Encuentra sucursales abiertas cerca tuyo o busca por código de tienda.</p>
               </div>
 
-              <div className="relative w-full md:max-w-xs shrink-0">
-                <span className="absolute left-3.5 top-2.5 text-slate-405">
-                  <Search className="w-4 h-4" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="ej. M24-BELGRANO o Max24..."
-                  value={storeSearchQuery}
-                  onChange={(e) => setStoreSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/15"
-                />
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Toggle "🟢 Abiertos Ahora" */}
+                <button
+                  type="button"
+                  onClick={() => setOnlyOpenNowFilter(!onlyOpenNowFilter)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-2xs border ${
+                    onlyOpenNowFilter
+                      ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-500/20'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                  title={onlyOpenNowFilter ? 'Mostrando solo negocios abiertos ahora' : 'Filtrar solo comercios abiertos'}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                    onlyOpenNowFilter ? 'bg-white shadow-xs animate-pulse' : 'bg-emerald-500'
+                  }`} />
+                  <span>🟢 Abiertos Ahora</span>
+                  {onlyOpenNowFilter && (
+                    <span className="ml-1 bg-emerald-700/80 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold">
+                      {filteredStores.length}
+                    </span>
+                  )}
+                </button>
+
+                {/* GPS Location Distance Sort */}
+                <button
+                  type="button"
+                  onClick={handleRequestLocation}
+                  disabled={isLocating}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                    userCoords
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                  }`}
+                  title="Ordenar negocios por distancia GPS"
+                >
+                  <Navigation className={`w-3.5 h-3.5 text-indigo-600 ${isLocating ? 'animate-spin' : ''}`} />
+                  <span>{userCoords ? '📍 Cerca de Mí (GPS Activo)' : '📍 Cerca de Mí (GPS)'}</span>
+                </button>
+
+                {/* Text Search Input */}
+                <div className="relative w-full sm:w-56 shrink-0">
+                  <span className="absolute left-3 top-2.5 text-slate-400">
+                    <Search className="w-3.5 h-3.5" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Buscar nombre o código..."
+                    value={storeSearchQuery}
+                    onChange={(e) => setStoreSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/15"
+                  />
+                </div>
               </div>
             </div>
 
+            {geoError && (
+              <p className="text-xs text-rose-500 font-medium px-2">{geoError}</p>
+            )}
+
             {/* List of matching stores */}
             {filteredStores.length === 0 ? (
-              <div className="p-12 text-center bg-slate-100 rounded-2xl border border-dashed border-slate-300">
-                <Store className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-500">Ningún comercio coincide con tu búsqueda.</p>
+              <div className="p-12 text-center bg-slate-100 rounded-2xl border border-dashed border-slate-300 space-y-2">
+                <Store className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs font-bold text-slate-600">Ningún comercio coincide con los filtros aplicados.</p>
+                {onlyOpenNowFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setOnlyOpenNowFilter(false)}
+                    className="text-xs text-indigo-600 font-extrabold hover:underline cursor-pointer"
+                  >
+                    Ver todos los comercios (incluidos cerrados)
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="all-stores-directory">
                 {filteredStores.map(store => {
                   const isFav = myFavoriteEmails.includes(store.email!);
+                  const isOpen = checkIsStoreOpen(store);
+                  const is24h = (store as any).is_24_hours || (store as any).is24h || (store.schedule && /24\s*(hs|horas|h)?/i.test(store.schedule));
+                  const distanceKm = userCoords ? getStoreDistanceKm(store, userCoords.lat, userCoords.lng) : null;
+
                   return (
                     <div 
                       key={store.email}
-                      className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xxs flex flex-col justify-between hover:shadow-xs transition-shadow"
+                      className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xxs flex flex-col justify-between hover:shadow-md transition-all relative overflow-hidden text-left group"
                     >
-                      <div className="space-y-3.5 text-left leading-normal">
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-extrabold text-slate-800 text-sm">{store.name}</h4>
-                          <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider shrink-0">
-                            {store.storeCode}
+                      {/* Real-time Status Badge */}
+                      <div className="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5">
+                        {distanceKm !== null && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-2xs">
+                            📍 {distanceKm} km
                           </span>
+                        )}
+                        <div 
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-2xs border ${
+                            isOpen 
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90' 
+                              : 'bg-rose-50 text-rose-800 border-rose-200/90'
+                          }`}
+                          title={isOpen ? 'Comercio abierto y operando' : 'Comercio actualmente cerrado'}
+                        >
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${
+                            isOpen ? 'bg-emerald-500 shadow-sm shadow-emerald-400 animate-pulse' : 'bg-rose-500'
+                          }`} />
+                          <span className="leading-none">{is24h && isOpen ? 'Abierto 24hs' : isOpen ? 'Abierto' : 'Cerrado'}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 pr-24">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-indigo-100/80 text-indigo-700 rounded-xl flex items-center justify-center shrink-0 font-extrabold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                            <Store className="w-5 h-5" />
+                          </div>
+                          <div className="leading-tight min-w-0">
+                            <h4 className="font-extrabold text-slate-800 text-sm truncate">{store.name}</h4>
+                            <span className="inline-block bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider mt-1">
+                              {store.storeCode}
+                            </span>
+                          </div>
                         </div>
 
-                        <div className="space-y-2 text-xs text-slate-500 leading-tight">
+                        <div className="space-y-1.5 text-xs text-slate-600 leading-tight pt-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="flex items-center gap-1.5 truncate">
+                              <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="truncate">{store.address}</span>
+                            </p>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${store.address || store.name}, ${store.city || 'Argentina'}`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-extrabold flex items-center gap-0.5 shrink-0 hover:underline"
+                              title="Abrir en Google Maps"
+                            >
+                              <span>Ver mapa</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+
                           <p className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            {store.address}
+                            <Phone className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span>{store.phone}</span>
                           </p>
                           <p className="flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            {store.phone}
-                          </p>
-                          <p className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            {store.schedule || '08:00 a 22:00'}
+                            <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span>{store.schedule || '08:00 a 22:00'}</span>
                           </p>
 
                           {store.bankAlias && (
-                            <div className="bg-slate-50 border border-slate-150 p-2 rounded-xl flex items-center justify-between text-[11px] mt-3">
+                            <div className="bg-slate-50 border border-slate-150 p-2 rounded-xl flex items-center justify-between text-[11px] mt-2">
                               <div>
                                 <span className="text-slate-400 font-extrabold block text-[8px] uppercase tracking-wider leading-none">ALIAS TRANSFERENCIAS</span>
-                                <span className="text-slate-800 font-mono font-black mt-1 inline-block">{store.bankAlias}</span>
+                                <span className="text-slate-800 font-mono font-black mt-0.5 inline-block">{store.bankAlias}</span>
                               </div>
                               <button
+                                type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigator.clipboard.writeText(store.bankAlias!);
@@ -1108,7 +1469,7 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
                                 title="Copiar alias bancario"
                               >
                                 {copiedAliasStore === store.email ? (
-                                  <span className="text-emerald-500">¡Copiado!</span>
+                                  <span className="text-emerald-600 font-bold">¡Copiado!</span>
                                 ) : (
                                   <span>Copiar</span>
                                 )}
@@ -1118,28 +1479,58 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
                         </div>
                       </div>
 
-                      <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-2 mt-4">
-                        <button
-                          onClick={() => toggleFavoriteStore(store)}
-                          className={`w-full py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all
-                            ${isFav 
-                              ? 'bg-indigo-50 border border-indigo-200 text-indigo-600' 
-                              : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-md shadow-indigo-100'}
-                          `}
-                        >
-                          <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-indigo-600' : ''}`} />
-                          {isFav ? 'Suscrito (Favorito)' : 'Agregar a mis favor.'}
-                        </button>
+                      <div className="pt-3 border-t border-slate-150 mt-4 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStoreEmail(store.email!);
+                              setActiveTab('shop_online');
+                            }}
+                            className="py-2 px-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                          >
+                            <ShoppingBag className="w-3.5 h-3.5" />
+                            <span>Comprar</span>
+                          </button>
 
-                        <button
-                          onClick={() => handleOpenAutoWhatsApp(store, `Hola, *${store.name}*! Soy *${profileName || currentUser.name}*, me contacto desde de mi perfil en la app MAX24 para realizarles una consulta. `)}
-                          className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border border-emerald-200 rounded-xl flex items-center justify-center cursor-pointer transition-all shrink-0"
-                          title="Enviar WhatsApp al Comercio"
-                        >
-                          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                            <path d="M12.004 2c-5.51 0-9.99 4.49-9.99 10 0 1.91.54 3.7 1.48 5.24l-1.4 5.12 5.24-1.37c1.5.89 3.23 1.4 5.07 1.4 5.51 0 10-4.49 10-10s-4.49-10-10-10zm5.66 14.18c-.24.67-1.19 1.25-1.95 1.41-.53.11-1.22.2-3.54-.76-2.96-1.23-4.88-4.25-5.03-4.45-.15-.2-1.21-1.61-1.21-3.07 0-1.46.76-2.18 1.03-2.48.27-.3.59-.38.79-.38.2 0 .39 0 .57.01.18.01.42-.08.66.5.24.58.83 2.03.9 2.18.07.15.12.33.02.53-.1.2-.15.3-.3.48-.15.18-.31.4-.44.54-.15.15-.31.32-.13.63.18.31.81 1.33 1.73 2.15.92.82 1.7-1.07 2.15-1.21.31-.1.6.01.78.18.18.18 1.15 1.15 1.35 1.25.2.1.33.15.38.24.05.09.05.53-.19 1.2z" />
-                          </svg>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStoreEmail(store.email!);
+                              setActiveTab('scan_n_pay');
+                            }}
+                            className="py-2 px-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                          >
+                            <QrCode className="w-3.5 h-3.5 text-orange-400" />
+                            <span>Escáner</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleFavoriteStore(store)}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                              isFav 
+                                ? 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100' 
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-600 text-rose-600' : ''}`} />
+                            <span>{isFav ? 'En Favoritos' : 'Añadir Favorito'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenAutoWhatsApp(store, `Hola, *${store.name}*! Soy *${profileName || currentUser.name}*, me contacto desde de mi perfil en la app MAX24 para realizarles una consulta. `)}
+                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl flex items-center justify-center cursor-pointer transition-all shrink-0"
+                            title="Enviar WhatsApp al Comercio"
+                          >
+                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                              <path d="M12.004 2c-5.51 0-9.99 4.49-9.99 10 0 1.91.54 3.7 1.48 5.24l-1.4 5.12 5.24-1.37c1.5.89 3.23 1.4 5.07 1.4 5.51 0 10-4.49 10-10s-4.49-10-10-10zm5.66 14.18c-.24.67-1.19 1.25-1.95 1.41-.53.11-1.22.2-3.54-.76-2.96-1.23-4.88-4.25-5.03-4.45-.15-.2-1.21-1.61-1.21-3.07 0-1.46.76-2.18 1.03-2.48.27-.3.59-.38.79-.38.2 0 .39 0 .57.01.18.01.42-.08.66.5.24.58.83 2.03.9 2.18.07.15.12.33.02.53-.1.2-.15.3-.3.48-.15.18-.31.4-.44.54-.15.15-.31.32-.13.63.18.31.81 1.33 1.73 2.15.92.82 1.7-1.07 2.15-1.21.31-.1.6.01.78.18.18.18 1.15 1.15 1.35 1.25.2.1.33.15.38.24.05.09.05.53-.19 1.2z" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -1161,39 +1552,60 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allStores.map(store => (
-              <div 
-                key={store.email}
-                onClick={async () => {
-                  setSelectedStoreEmail(store.email || '');
-                  if (store.email && !myFavoriteEmails.includes(store.email)) {
-                     setMyFavoriteEmails(prev => [...prev, store.email || '']);
-                  }
-                }}
-                className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-indigo-500 transition-all cursor-pointer shadow-xxs block text-left group"
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[10px] font-mono font-extrabold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                    {store.storeCode}
-                  </span>
-                </div>
-                <h3 className="font-extrabold text-slate-800 text-sm">{store.name}</h3>
-                <p className="text-[11px] text-slate-500 font-semibold mt-1.5 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  {store.address}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-2 font-mono">⚡ Horario: {store.schedule}</p>
-                <button
-                  type="button"
-                  className="w-full mt-4 py-2 bg-slate-900 hover:bg-slate-850 text-white font-black text-xs rounded-xl transition-colors cursor-pointer"
+            {allStores.map(store => {
+              const isOpen = checkIsStoreOpen(store);
+              return (
+                <div 
+                  key={store.email}
+                  onClick={async () => {
+                    setSelectedStoreEmail(store.email || '');
+                    if (store.email && !myFavoriteEmails.includes(store.email)) {
+                       setMyFavoriteEmails(prev => [...prev, store.email || '']);
+                    }
+                  }}
+                  className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-indigo-500 transition-all cursor-pointer shadow-xs block text-left group relative overflow-hidden"
                 >
-                  Conectar y Comprar Aquí
-                </button>
-              </div>
-            ))}
+                  {/* Real-time Status Badge */}
+                  <div 
+                    className={`absolute top-3.5 right-3.5 z-10 px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 border ${
+                      isOpen 
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90' 
+                        : 'bg-rose-50 text-rose-800 border-rose-200/90'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      isOpen ? 'bg-emerald-500 shadow-sm shadow-emerald-400 animate-pulse' : 'bg-rose-500'
+                    }`} />
+                    <span className="leading-none">{isOpen ? 'Abierto' : 'Cerrado'}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-3 pr-20">
+                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                      <Store className="w-5 h-5" />
+                    </div>
+                    <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[10px] font-mono font-extrabold">
+                      {store.storeCode}
+                    </span>
+                  </div>
+                  <h3 className="font-extrabold text-slate-800 text-sm">{store.name}</h3>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1.5 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    {store.address}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-2 font-mono flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    Horario: {store.schedule || '08:00 a 22:00'}
+                  </p>
+                  <button
+                    type="button"
+                    className="w-full mt-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Conectar y Comprar Aquí</span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1419,38 +1831,60 @@ export default function BuyerPortal({ currentUser, onLogout, onUpdateCurrentUser
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {allStores.map(store => (
-              <div 
-                key={store.email}
-                onClick={async () => {
-                  setSelectedStoreEmail(store.email || '');
-                  if (store.email && !myFavoriteEmails.includes(store.email)) {
-                     setMyFavoriteEmails(prev => [...prev, store.email || '']);
-                  }
-                }}
-                className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-indigo-500 transition-all cursor-pointer shadow-xxs block text-left group"
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                    <Store className="w-5 h-5" />
-                  </div>
-                  <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[10px] font-mono font-extrabold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                    {store.storeCode}
-                  </span>
-                </div>
-                <h3 className="font-extrabold text-slate-800 text-sm">{store.name}</h3>
-                <p className="text-[11px] text-slate-550 font-semibold mt-1.5 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  {store.address}
-                </p>
-                <button
-                  type="button"
-                  className="w-full mt-4 py-2 bg-slate-900 hover:bg-slate-850 text-white font-black text-xs rounded-xl transition-colors cursor-pointer"
+            {allStores.map(store => {
+              const isOpen = checkIsStoreOpen(store);
+              return (
+                <div 
+                  key={store.email}
+                  onClick={async () => {
+                    setSelectedStoreEmail(store.email || '');
+                    if (store.email && !myFavoriteEmails.includes(store.email)) {
+                       setMyFavoriteEmails(prev => [...prev, store.email || '']);
+                    }
+                  }}
+                  className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-slate-800 transition-all cursor-pointer shadow-xs block text-left group relative overflow-hidden"
                 >
-                  Conectar Escáner Aquí
-                </button>
-              </div>
-            ))}
+                  {/* Real-time Status Badge */}
+                  <div 
+                    className={`absolute top-3.5 right-3.5 z-10 px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 border ${
+                      isOpen 
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200/90' 
+                        : 'bg-rose-50 text-rose-800 border-rose-200/90'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      isOpen ? 'bg-emerald-500 shadow-sm shadow-emerald-400 animate-pulse' : 'bg-rose-500'
+                    }`} />
+                    <span className="leading-none">{isOpen ? 'Abierto' : 'Cerrado'}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-3 pr-20">
+                    <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center font-bold group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                      <QrCode className="w-5 h-5" />
+                    </div>
+                    <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded text-[10px] font-mono font-extrabold">
+                      {store.storeCode}
+                    </span>
+                  </div>
+                  <h3 className="font-extrabold text-slate-800 text-sm">{store.name}</h3>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-1.5 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                    {store.address}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-2 font-mono flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    Horario: {store.schedule || '08:00 a 22:00'}
+                  </p>
+                  <button
+                    type="button"
+                    className="w-full mt-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-orange-400" />
+                    <span>Conectar Escáner Presencial Aquí</span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

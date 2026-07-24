@@ -155,6 +155,14 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   3. **Permisos de Cámara Críticos**: Se modificó `AndroidManifest.xml` agregando la directiva de permiso `android.permission.CAMERA` y declarando el uso opcional de hardware de cámara, asegurando que la pistola lectora / escáner de códigos de barras mediante cámara funcione de forma nativa en cualquier dispositivo móvil Android.
   4. **Scripts de Automatización**: Se añadieron scripts convenientes en `package.json` (`mobile:build`, `mobile:sync`, `mobile:open`) para que cualquier actualización de código de la app se transfiera y compile automáticamente en Android Studio en un solo paso.
 
+### Error 18: Vulnerabilidad de Control de Acceso por Roles (RBAC) en Pestaña de Proveedores B2B
+* **Fallo:** Si un usuario ingresaba a la pestaña "Proveedores B2B" e introducía las credenciales de una cuenta de tipo "Comercio / Administrador" (como `bigmax24h7@gmail.com`), el sistema permitía la autenticación y lo redirigía al panel del Comercio POS.
+* **Causa:** La función de inicio de sesión (`handleLoginSubmit` en `Login.tsx`) autenticaba las credenciales comprobando únicamente la coincidencia global de usuario/correo y contraseña, sin validar el rol del usuario respecto a la pestaña activa del portal (`mainPortalTab`).
+* **Solución:** Se implementó una verificación estricta de Roles basada en el portal activo (RBAC):
+  1. **Validación en Pestaña Proveedores B2B (`mainPortalTab === 'proveedor'`)**: Filtra únicamente usuarios con rol `Proveedor`. Si las credenciales corresponden a `Administrador` o `Comercio`, se deniega el acceso inmediatamente con la alerta: `⛔ Acceso denegado. Esta cuenta está registrada como Comercio. Por favor, inicia sesión desde la pestaña "Comercio POS".`
+  2. **Validación en Pestaña Compradores (`mainPortalTab === 'comprador'`)**: Exige rol `Comprador`.
+  3. **Validación en Pestaña Comercio POS (`mainPortalTab === 'comercio'`)**: Exige roles `Administrador` / `Soporte` para dueños, y roles de empleado (`Cajero` / `Supervisor` / `Gerente`) para la subpestaña de empleados. Si un usuario de Proveedor intenta ingresar aquí, se rechaza notificando la pestaña correspondiente.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

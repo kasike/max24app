@@ -150,6 +150,8 @@ export interface StoreSettings {
   country?: string;   // Location fields
   province?: string;  // Location fields
   city?: string;      // Location fields
+  latitude?: number;  // GPS latitude
+  longitude?: number; // GPS longitude
   fixedCosts?: {
     id: string;
     category: string;
