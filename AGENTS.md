@@ -23,7 +23,7 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
 * **Tasa Aplicada (Fondo Nacional de las Artes):** $4,11 (Se aplicó el mínimo legal porque el 0,2% del costo total daba un valor menor).
 
 ## 💎 Configuración de Roles y Comercios
-* **Master Admin / Demo Control Sandbox:** `pezziniarg@gmail.com` (Luis Pérez). No es dueño de una tienda real; se le asigna el modo de prueba (`isDemo = true`) para poder visualizar, controlar y testear el funcionamiento de la app con datos de demostración precargados (Marlboro, etc.) sin interferir con bases de datos productivas.
+* **Master Admin / Demo Control Sandbox:** `pezziniarg@gmail.com` (Luis Pezzini). No es dueño de una tienda real; se le asigna el modo de prueba (`isDemo = true`) para poder visualizar, controlar y testear el funcionamiento de la app con datos de demostración precargados (Marlboro, etc.) sin interferir con bases de datos productivas.
 * **Comercio Real / Producción:** `bigmax24h7@gmail.com` (Administrador BigMAX). Comercio real listo para abrir en dos semanas. Opera con almacenamiento 100% seguro en Firebase, aislado, inicializado en limpio con el Asistente de Configuración (Setup Wizard) para definir parámetros reales del negocio.
 
 ## ⚠️ Errores Detectados y Soluciones Aplicadas (Log de Errores)
@@ -242,6 +242,15 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   1. **Rediseño de Pestañas Activas con Color de Marca Naranja MAX24**: Se aplicó el color primario (`bg-orange-500` con texto blanco puro `text-white font-extrabold`), borde delimitador `border-orange-600` y sombra de elevación (`shadow-md shadow-orange-500/30`), garantizando que la pestaña seleccionada destaque de forma instantánea.
   2. **Pestañas Inactivas Sutiles**: Se estructuraron las opciones no seleccionadas con fondos transparentes/ligeros y texto `text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 font-bold`.
   3. **Accesibilidad WCAG (`role="tab"` & `aria-selected`)**: Se añadieron los atributos semánticos `role="tab"` y `aria-selected={active}` para lectores de pantalla.
+
+### Característica 28: Rediseño Prioritario del Módulo "Reportes / Análisis" (X-Report & Z-Report History)
+* **Requerimiento:** El dueño de tienda o cajero necesitaba visualizar en primer plano prioritario el "Resumen del Día" (cuánto se vendió hoy, cómo se cobró y cuánto hay en caja) y el historial de cierres de turno (Arqueos / Z-Reports), en lugar de gráficos acumulados abstractos.
+* **Solución:** Se implementó un rediseño completo en `/src/components/Reports.tsx`:
+  1. **Filtro Rápido de Fecha**: Selector superior con opciones predefinidas (**Hoy**, **Ayer**, **Esta Semana** y **Fecha Personalizada**).
+  2. **Tarjeta Resumen del Día**: Totales de Ventas, Transacciones, Ticket Promedio y desglose directo por medio de pago (**Efectivo en Caja**, **Mercado Pago / QR**, **Tarjetas** y **Cuentas Corrientes / Fiado**).
+  3. **Arqueo Directo de Caja (Z-Report)**: Modal interactivo para que el personal declare el efectivo físicamente contado en la gaveta. El sistema calcula automáticamente el efectivo esperado (`Fondo Inicial + Ventas Efectivo`) y determina el arqueo exacto (`$0 Perfecto`, `+$X Sobrante` o `-$X Faltante`), actualizando la sesión en Firestore.
+  4. **Tabla de Historial de Turnos y Cierres**: Registro de auditoría por empleado con horas de apertura/cierre, efectivo esperado vs declarado, estados y botón de acción **"📄 Ver Ticket"**.
+  5. **Comprobante Térmico & Envió WhatsApp**: Visualizador de ticket Z-Report con firmas, opción de impresión local (`window.print()`) y envío del resumen por WhatsApp al teléfono del comerciante.
 
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).

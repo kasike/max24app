@@ -2155,6 +2155,9 @@ export default function App() {
             onRestoreSales={handleRestoreSales}
             storeSettings={storeSettings}
             activeStoreEmail={activeStoreEmail}
+            cashierSessions={cashierSessions}
+            onAddSession={handleAddCashierSession}
+            onUpdateSessionStatus={handleUpdateSessionStatus}
           />
         );
       case 'online_sales':

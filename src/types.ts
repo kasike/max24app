@@ -258,6 +258,10 @@ export interface CashierSession {
   status: 'esperando_autorizacion' | 'autorizado' | 'cerrado';
   storeEmail: string;
   shift?: string;
+  expectedCash?: number;
+  actualCash?: number;
+  difference?: number;
+  notes?: string;
 }
 
 export interface CalendarEvent {
