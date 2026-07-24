@@ -2483,8 +2483,8 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
         {/* Top bar header */}
-        <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0 flex items-center justify-between px-6 z-20">
-          <div className="flex items-center gap-4">
+        <header className="bg-white border-b border-slate-200 h-16 flex-shrink-0 flex items-center justify-between px-3 sm:px-6 z-20">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden p-2 hover:bg-slate-100 rounded-xl text-slate-600 focus:outline-hidden cursor-pointer"
@@ -2498,22 +2498,26 @@ export default function App() {
               <div className="text-xs text-slate-500 font-mono font-medium flex items-center gap-1.5">
                 {isPracticeMode ? (
                   <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md font-bold text-[9px] tracking-wider">
-                    MODO PRACTICANTE ACTIVO
+                    MODO PRACTICANTE
                   </span>
                 ) : (
-                  "Conexión segura establecida • Sucursal Activa"
+                  <>
+                    <span className="hidden sm:inline">Conexión segura establecida • Sucursal Activa</span>
+                    <span className="sm:hidden text-[10px] font-bold">Sucursal Activa</span>
+                  </>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isSuperAdmin && !isSimulatingShop ? (
               <>
                 {/* SaaS Admin Header Elements */}
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 border border-orange-200 text-orange-800 rounded-xl text-[10px] font-mono font-bold uppercase">
+                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-orange-50 border border-orange-200 text-orange-800 rounded-xl text-[10px] font-mono font-bold uppercase">
                   <Crown className="w-3.5 h-3.5 text-orange-500" />
-                  <span>MAX24 • SISTEMA CENTRAL</span>
+                  <span className="hidden sm:inline">MAX24 • SISTEMA CENTRAL</span>
+                  <span className="sm:hidden">MAX24</span>
                 </div>
                 <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-900 rounded-lg text-[9px] font-bold font-sans border border-orange-200">
                   <ShieldEllipsis className="w-3.5 h-3.5 text-orange-600" />
@@ -2523,7 +2527,7 @@ export default function App() {
             ) : (
               <>
                 {/* Standard Client Store Header Elements */}
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-200 rounded-xl text-[10px] font-mono font-bold text-slate-600 uppercase">
+                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-slate-100 border border-slate-200 rounded-xl text-[10px] font-mono font-bold text-slate-600 uppercase">
                   {storeSettings.logoUrl ? (
                     <img 
                       src={storeSettings.logoUrl} 
@@ -2532,9 +2536,9 @@ export default function App() {
                       alt="" 
                     />
                   ) : (
-                    <Building2 className="w-3.5 h-3.5" />
+                    <Building2 className="w-3.5 h-3.5 shrink-0" />
                   )}
-                  <span className="max-w-[120px] truncate">{storeSettings.name}</span>
+                  <span className="max-w-[90px] sm:max-w-[140px] truncate">{storeSettings.name}</span>
                 </div>
                 
                 {/* User security flag info */}

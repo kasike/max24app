@@ -576,23 +576,23 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full items-start">
       
       {/* Left Column: Product Selection Catalog */}
-      <div className="xl:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col space-y-6">
+      <div className="xl:col-span-7 bg-white rounded-2xl border border-slate-200 p-3.5 sm:p-6 shadow-xs flex flex-col space-y-4 sm:space-y-6">
         
         {/* Banner with helpful hints */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
-            <h2 className="text-xl font-bold font-sans text-slate-800 tracking-tight">Catálogo de Productos</h2>
+            <h2 className="text-lg sm:text-xl font-bold font-sans text-slate-800 tracking-tight">Catálogo de Productos</h2>
             <p className="text-xs text-slate-500 mt-0.5">Selecciona o busca productos para venderlos</p>
           </div>
           
           {/* Seller / Operator Quick Dropdown to simulate different users */}
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-            <Users className="w-4 h-4 text-slate-500" />
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 self-start md:self-auto">
+            <Users className="w-4 h-4 text-slate-500 shrink-0" />
             <span className="text-xs text-slate-600 font-medium font-sans">Vendedor:</span>
             <select
               value={selectedSellerId}
               onChange={(e) => setSelectedSellerId(e.target.value)}
-              className="text-xs bg-transparent border-none text-slate-800 focus:outline-hidden font-semibold"
+              className="text-xs bg-transparent border-none text-slate-800 focus:outline-hidden font-semibold cursor-pointer"
             >
               <option value="" disabled>Seleccionar...</option>
               {activeSellers.map(emp => (
@@ -603,12 +603,12 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
         </div>
 
         {/* Search and Categories bar */}
-        <div className="space-y-3.5">
+        <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Buscar por nombre, categoría, código de barras o SKU..."
+              placeholder="Buscar por nombre, categoría, código o SKU..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -633,7 +633,7 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
                   }
                 }
               }}
-              className="w-full pl-11 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
+              className="w-full pl-11 pr-12 py-2.5 bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200"
             />
             <button
               type="button"
@@ -646,13 +646,13 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
           </div>
 
           {/* Horizon Category Badges list */}
-          <div className="flex flex-wrap gap-1.5 pb-2 border-b border-slate-100 overflow-x-auto">
+          <div className="flex flex-nowrap sm:flex-wrap gap-1.5 pb-2 border-b border-slate-100 overflow-x-auto no-scrollbar">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`
-                  px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all duration-150 capitalize flex-shrink-0 cursor-pointer
+                  px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all duration-150 capitalize flex-shrink-0 cursor-pointer whitespace-nowrap
                   ${activeCategory === cat 
                     ? 'bg-blue-50 text-blue-950 border-b-2 border-blue-600' 
                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}
@@ -666,13 +666,13 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
 
         {/* Dynamic products list */}
         {filteredProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200">
+          <div className="flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-xl bg-slate-50 border border-dashed border-slate-200">
             <Ban className="w-10 h-10 text-slate-400 mb-2" />
             <p className="text-sm font-semibold text-slate-700">No se encontraron productos</p>
             <p className="text-xs text-slate-400 mt-1">Intenta con otra búsqueda o ingresa un producto nuevo en Stock</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4.5 max-h-[500px] overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[500px] overflow-y-auto pr-1">
             {filteredProducts.map((product) => {
               const inCartItem = cart.find(item => item.product.id === product.id);
               const inCartQty = inCartItem ? inCartItem.quantity : 0;
@@ -685,7 +685,7 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
                   onClick={() => !isOutOfStock && addToCart(product)}
                   disabled={isOutOfStock}
                   className={`
-                    text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between h-36 relative cursor-pointer group
+                    text-left p-3.5 sm:p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between min-h-[144px] h-auto relative cursor-pointer group
                     ${isOutOfStock 
                       ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed' 
                       : inCartQty > 0
@@ -695,23 +695,23 @@ export default function POS({ products, employees, onRegisterSale, currentUser, 
                 >
                   {/* Badge quantity or alerts */}
                   {inCartQty > 0 && (
-                    <span className="absolute top-2.5 right-2.5 bg-blue-600 text-white font-mono font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-sm">
+                    <span className="absolute top-2 right-2 bg-blue-600 text-white font-mono font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center shadow-sm z-10">
                       {inCartQty}
                     </span>
                   )}
 
-                  <div className="flex justify-between items-start gap-2.5 w-full">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-semibold text-slate-400 tracking-wider font-mono uppercase">
+                  <div className="flex justify-between items-start gap-2 w-full">
+                    <div className="min-w-0 flex-1 pr-6">
+                      <span className="text-[10px] font-semibold text-slate-400 tracking-wider font-mono uppercase truncate block">
                         {product.category}
                       </span>
-                      <h3 className="text-sm font-bold text-slate-800 line-clamp-2 mt-0.5 group-hover:text-blue-700 transition-colors" title={product.name}>
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 break-words leading-snug mt-0.5 group-hover:text-blue-700 transition-colors" title={product.name}>
                         {product.name}
                       </h3>
-                      <p className="text-[10px] font-mono text-slate-500 mt-0.5 font-semibold">SKU: {product.sku}</p>
+                      <p className="text-[10px] font-mono text-slate-500 mt-0.5 font-semibold truncate">SKU: {product.sku}</p>
                     </div>
                     {product.imageUrl && (
-                      <div className="w-11 h-11 rounded-lg border border-slate-150 overflow-hidden shrink-0 bg-slate-50 shadow-xxs">
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg border border-slate-150 overflow-hidden shrink-0 bg-slate-50 shadow-xxs">
                         <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                       </div>
                     )}

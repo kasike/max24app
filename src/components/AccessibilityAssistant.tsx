@@ -366,15 +366,15 @@ export default function AccessibilityAssistant({ activeStoreEmail }: Accessibili
       <button
         id="accessibility-floating-toggle-badge"
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 left-6 p-4 rounded-full shadow-2xl transition-all cursor-pointer flex items-center justify-center gap-1 group z-50 ${
+        className={`fixed bottom-4 sm:bottom-6 left-3 sm:left-6 p-3 sm:p-4 rounded-full shadow-2xl transition-all cursor-pointer flex items-center justify-center gap-1 group z-40 ${
           isEnabled 
             ? 'bg-blue-600 hover:bg-blue-700 text-white animate-pulse' 
-            : 'bg-slate-800 hover:bg-slate-700 text-white'
+            : 'bg-slate-800/90 hover:bg-slate-700 text-white backdrop-blur-xs'
         }`}
         aria-label="Panel de Accesibilidad y TalkBack por Voz"
         title="Panel de Accesibilidad y Narrador por Voz"
       >
-        <Accessibility className="w-6 h-6 shrink-0 group-hover:rotate-12 transition-transform" />
+        <Accessibility className="w-5 h-5 sm:w-6 sm:h-6 shrink-0 group-hover:rotate-12 transition-transform" />
         {isEnabled && (
           <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-900 absolute top-0.5 right-0.5" />
         )}
@@ -384,7 +384,7 @@ export default function AccessibilityAssistant({ activeStoreEmail }: Accessibili
       {isOpen && (
         <div 
           id="accessibility-settings-panel"
-          className="fixed bottom-24 left-6 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-2xl z-50 animate-bounce-in font-sans space-y-4 text-left"
+          className="fixed bottom-20 sm:bottom-24 left-3 sm:left-6 max-w-[calc(100vw-24px)] w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-2xl z-50 animate-bounce-in font-sans space-y-4 text-left"
         >
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
             <div className="flex items-center gap-2">

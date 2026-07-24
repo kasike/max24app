@@ -193,6 +193,14 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   3. **Banner y Modal de Instalación Inteligente (`PWAInstallPrompt.tsx`)**: Captura el evento nativo `beforeinstallprompt` (Chrome, Edge, Android) para ofrecer un botón de instalación en un toque ("Instalar App"). Detecta dispositivos iOS (iPhone/Safari) desplegando un instructivo guiado paso a paso (*"Compartir ⎋ -> Agregar a Inicio"*).
   4. **Compatibilidad 100% Futura con Play Store (Capacitor/Android)**: La PWA convive sin conflictos con la futura compilación APK/AAB para Google Play Store, sirviendo como canal de distribución inmediato para los comerciantes.
 
+### Error 22: Desbordamiento de Texto y Deformación de Tarjetas en PWA Móvil
+* **Fallo:** Al abrir la PWA instalada en teléfonos inteligentes, algunos nombres largos de productos o comercios hacían que las letras se salieran de los recuadros visuales, los botones de acción del banner de salud se desalineaban y el botón flotante de accesibilidad invadía parcialmente el catálogo.
+* **Causa:** Las tarjetas de productos del POS tenían una altura rígida asignada (`h-36`) en píxeles que no permitía expansión dinámica. Adicionalmente, faltaban reglas explícitas de truncamiento tipográfico (`line-clamp-2` y `break-words`) y los padding internos consumían excesivo espacio en pantallas estrechas (360px).
+* **Solución:**
+  1. **Flexibilidad en Tarjetas de Productos (`POS.tsx`)**: Se reemplazó la altura fija `h-36` por una altura adaptable con un piso mínimo `min-h-[144px] h-auto p-3.5 sm:p-4`, incorporando la clase `line-clamp-2 break-words leading-snug` en el título del producto y `truncate` en el código SKU y categoría.
+  2. **Banner de Salud Ajustado (`StoreHealthBanner.tsx`)**: Se reestructuró la cuadrícula de acciones en pantallas móviles y se fijó la posición del botón de cierre (`X`) en la esquina superior derecha con `absolute top-3 right-3`, eliminando saltos de línea indeseados.
+  3. **Barra de Cabecera y Botón Flotante (`App.tsx` & `AccessibilityAssistant.tsx`)**: Se abrevió el texto de conexión en la barra superior para teléfonos inteligentes (`sm:hidden text-[10px] font-bold`) y se reajustó el tamaño del badge flotante de accesibilidad (`p-3 sm:p-4 bottom-4 left-3`) garantizando un área táctil limpia de 44px que no interfiere con el catálogo de productos.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.
