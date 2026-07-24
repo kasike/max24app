@@ -34,7 +34,12 @@ import {
   Search,
   RefreshCw,
   ShieldAlert,
-  KeyRound
+  KeyRound,
+  Store,
+  Crown,
+  Layers,
+  ArrowRight,
+  ChevronDown
 } from 'lucide-react';
 import { StoreSettings, ComplianceDocument } from '../types';
 import { calculateStoreHealthScore } from '../utils/storeHealth';
@@ -45,7 +50,12 @@ interface SettingsProps {
   settings: StoreSettings;
   onUpdateSettings: (settings: StoreSettings) => void;
   currentUserEmail?: string;
-  initialTab?: 'generales' | 'costos' | 'arca' | 'compliance';
+  initialTab?: 'generales' | 'sucursales' | 'costos' | 'arca' | 'compliance';
+  userStores?: Array<{ id: string; storeName: string; email: string; ownerEmail?: string; plan?: string; status?: string }>;
+  activeStoreEmail?: string;
+  onSwitchStore?: (email: string) => void;
+  onCreateNewBranch?: (branchData: { storeName: string; email: string; address?: string; phone?: string; storeCode?: string }) => Promise<void>;
+  activeLicensePlan?: string;
 }
 
 export function calculateDocumentStatus(expirationDateStr: string, notifyBeforeDays: number = 30) {
@@ -123,7 +133,17 @@ const DEFAULT_DETAILED_HOURS = [
   { day: 'Domingo', isOpen: false, is24h: false, openTime: '09:00', closeTime: '13:00' }
 ];
 
-export default function Settings({ settings, onUpdateSettings, currentUserEmail, initialTab }: SettingsProps) {
+export default function Settings({ 
+  settings, 
+  onUpdateSettings, 
+  currentUserEmail, 
+  initialTab,
+  userStores,
+  activeStoreEmail,
+  onSwitchStore,
+  onCreateNewBranch,
+  activeLicensePlan
+}: SettingsProps) {
   const [name, setName] = useState(settings.name);
   const [address, setAddress] = useState(settings.address);
   const [phone, setPhone] = useState(settings.phone);
@@ -137,6 +157,15 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
   const [country, setCountry] = useState(settings.country || 'Argentina');
   const [province, setProvince] = useState(settings.province || 'CABA');
   const [city, setCity] = useState(settings.city || 'Belgrano');
+
+  // Branch creation modal state
+  const [isNewBranchModalOpen, setIsNewBranchModalOpen] = useState(false);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranchEmail, setNewBranchEmail] = useState('');
+  const [newBranchAddress, setNewBranchAddress] = useState('');
+  const [newBranchPhone, setNewBranchPhone] = useState('');
+  const [newBranchCode, setNewBranchCode] = useState('');
+  const [isSubmittingBranch, setIsSubmittingBranch] = useState(false);
   
   // Custom store search code & optional night pricing surcharge
   const defaultDerivedCode = useMemo(() => {
@@ -219,7 +248,7 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
   const [complianceSearch, setComplianceSearch] = useState('');
   const [complianceStatusFilter, setComplianceStatusFilter] = useState<'ALL' | 'EXPIRED' | 'WARNING' | 'ACTIVE'>('ALL');
 
-  const [activeTab, setActiveTab] = useState<'generales' | 'costos' | 'arca' | 'compliance'>(initialTab || 'generales');
+  const [activeTab, setActiveTab] = useState<'generales' | 'sucursales' | 'costos' | 'arca' | 'compliance'>(initialTab || 'generales');
   const [isGeneratingCsr, setIsGeneratingCsr] = useState(false);
 
   const downloadFile = (content: string, fileName: string, contentType: string) => {
@@ -866,6 +895,22 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
         </button>
         <button
           type="button"
+          id="tab-btn-sucursales"
+          onClick={() => setActiveTab('sucursales')}
+          className={`px-4 py-2.5 text-xs font-bold font-sans border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 relative ${
+            activeTab === 'sucursales'
+              ? 'border-orange-500 text-orange-600 font-extrabold border-b-2'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Building2 className="w-4 h-4 text-orange-500" />
+          Mis Sucursales ({userStores?.length || 1})
+          <span className="bg-orange-100 text-orange-800 text-[9.5px] px-1.5 py-0.5 rounded-md font-black">
+            {activeLicensePlan === 'Empresarial' ? 'Empresarial' : 'Multi-Tienda'}
+          </span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('costos')}
           className={`px-4 py-2.5 text-xs font-bold font-sans border-b-2 transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
             activeTab === 'costos'
@@ -910,6 +955,25 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
         <form onSubmit={handleSubmit} className="lg:col-span-2 space-y-6" id="store-settings-form">
           {activeTab === 'generales' && (
             <>
+              {/* Multi-store callout banner */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-orange-100 text-orange-600 rounded-xl shrink-0">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <span className="text-slate-700 font-semibold">
+                    ¿Posees más de una tienda o sucursal? Puedes registrar e ingresar a tus otras tiendas en 1 clic.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('sucursales')}
+                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white font-extrabold rounded-xl text-[11px] transition-colors shrink-0 cursor-pointer shadow-2xs"
+                >
+                  Ver Mis Sucursales →
+                </button>
+              </div>
+
               <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xxs space-y-5">
                 <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-3 flex items-center gap-2">
                   <Building2 className="w-4 h-4 text-orange-500" />
@@ -1581,6 +1645,119 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
           </div>
         </>
       )}
+
+          {activeTab === 'sucursales' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xxs space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2 font-sans">
+                      <Building2 className="w-5 h-5 text-orange-500" />
+                      Red de Comercios y Mis Sucursales ({userStores?.length || 1})
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1 font-sans">
+                      Añada y conmute entre las distintas sucursales de su negocio. Todas las tiendas están centralizadas bajo su cuenta de administración.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewBranchName('');
+                      setNewBranchEmail(currentUserEmail ? `sucursal.${Date.now().toString().slice(-4)}@max24app.com` : '');
+                      setNewBranchAddress('');
+                      setNewBranchPhone('');
+                      setNewBranchCode('');
+                      setIsNewBranchModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2 shrink-0 font-sans"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>➕ Registrar Nueva Sucursal</span>
+                  </button>
+                </div>
+
+                {/* License Plan Status Alert */}
+                <div className="p-4 bg-orange-50/80 border border-orange-200 rounded-2xl flex items-start gap-3">
+                  <Crown className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                  <div className="text-xs font-sans space-y-1">
+                    <p className="font-extrabold text-orange-950">
+                      {activeLicensePlan === 'Empresarial'
+                        ? '👑 Licencia Empresarial Activa: Gestión Ilimitada de Sucursales'
+                        : `Licencia Actual: ${activeLicensePlan || 'Habilitada'}`}
+                    </p>
+                    <p className="text-orange-800 font-medium leading-relaxed">
+                      {activeLicensePlan === 'Empresarial'
+                        ? 'Tu Plan Empresarial te permite registrar y administrar todas las tiendas y franquicias de tu red comercial de manera centralizada. Puedes cambiar de sucursal en 1 clic desde esta pantalla o desde el menú superior.'
+                        : 'El Plan Empresarial de MAX24 incluye la habilitación para operar con ilimitadas sucursales, consolas de red unificadas y soporte prioritario 24/7.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stores Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  {(userStores && userStores.length > 0 ? userStores : [
+                    {
+                      id: 'default-store',
+                      storeName: name || 'Sucursal Principal',
+                      email: activeStoreEmail || currentUserEmail || 'global',
+                      status: 'Activo'
+                    }
+                  ]).map((store) => {
+                    const isCurrentActive = (store.email || '').trim().toLowerCase() === (activeStoreEmail || '').trim().toLowerCase();
+                    return (
+                      <div
+                        key={store.id}
+                        className={`p-5 rounded-2xl border transition-all space-y-3 font-sans relative ${
+                          isCurrentActive
+                            ? 'bg-orange-50/50 border-orange-300 ring-2 ring-orange-500/20 shadow-sm'
+                            : 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Building2 className={`w-4 h-4 ${isCurrentActive ? 'text-orange-600' : 'text-slate-400'}`} />
+                              <h4 className="font-extrabold text-sm text-slate-900">{store.storeName || store.email}</h4>
+                            </div>
+                            <p className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5">
+                              <Mail className="w-3 h-3 text-slate-400" />
+                              <span>{store.email}</span>
+                            </p>
+                          </div>
+
+                          <span className={`text-[9.5px] font-black uppercase px-2.5 py-1 rounded-full border ${
+                            isCurrentActive
+                              ? 'bg-orange-500 text-white border-orange-600 shadow-xs'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
+                            {isCurrentActive ? '🟢 En Uso Activo' : '⚪ Secundaria'}
+                          </span>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                          {isCurrentActive ? (
+                            <span className="text-xs font-bold text-orange-700 flex items-center gap-1.5 bg-orange-100/80 px-3 py-1.5 rounded-xl border border-orange-200">
+                              <Check className="w-4 h-4 text-orange-600" />
+                              Sucursal Activa Actualmente
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onSwitchStore && onSwitchStore(store.email)}
+                              className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <span>⚡ Conmutar / Entrar a esta Sucursal</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'costos' && (
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xxs space-y-4">
@@ -2591,6 +2768,149 @@ export default function Settings({ settings, onUpdateSettings, currentUserEmail,
                 >
                   <Save className="w-4 h-4" />
                   Guardar Trámite
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Registrar Nueva Sucursal */}
+      {isNewBranchModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl p-6 space-y-5 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-orange-100 text-orange-600 rounded-2xl">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Registrar Nueva Sucursal</h3>
+                  <p className="text-xs text-slate-500">Agregue un nuevo punto de venta o comercio a su red</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewBranchModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newBranchName.trim()) {
+                  alert("Por favor ingrese el nombre de la sucursal.");
+                  return;
+                }
+                if (!newBranchEmail.trim()) {
+                  alert("Por favor ingrese un correo o ID único para la sucursal.");
+                  return;
+                }
+
+                setIsSubmittingBranch(true);
+                try {
+                  if (onCreateNewBranch) {
+                    await onCreateNewBranch({
+                      storeName: newBranchName.trim(),
+                      email: newBranchEmail.trim().toLowerCase(),
+                      address: newBranchAddress.trim(),
+                      phone: newBranchPhone.trim(),
+                      storeCode: newBranchCode.trim()
+                    });
+                  }
+                  setIsNewBranchModalOpen(false);
+                } catch (err: any) {
+                  alert("Error al registrar sucursal: " + err.message);
+                } finally {
+                  setIsSubmittingBranch(false);
+                }
+              }}
+              className="space-y-4 text-xs font-sans"
+            >
+              <div className="space-y-1.5">
+                <label className="font-extrabold text-slate-700 block">Nombre de Fantasía de la Sucursal *</label>
+                <input
+                  type="text"
+                  placeholder="ej. MAX24 - Sucursal Belgrano / Kiosco Centro"
+                  value={newBranchName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewBranchName(val);
+                    if (!newBranchCode) {
+                      const cleanStr = val.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 8);
+                      if (cleanStr) setNewBranchCode(`M24-${cleanStr}`);
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-extrabold text-slate-700 block">ID / Correo Electrónico Único de la Sucursal *</label>
+                <input
+                  type="email"
+                  placeholder="ej. belgrano@max24app.com o suc.belgrano@gmail.com"
+                  value={newBranchEmail}
+                  onChange={(e) => setNewBranchEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20"
+                  required
+                />
+                <p className="text-[10px] text-slate-400 font-medium">Este identificador sirve para separar el stock, ventas y empleados de esta sucursal.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="font-extrabold text-slate-700 block">Dirección del Local</label>
+                  <input
+                    type="text"
+                    placeholder="ej. Av. Cabildo 2200, CABA"
+                    value={newBranchAddress}
+                    onChange={(e) => setNewBranchAddress(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-extrabold text-slate-700 block">Teléfono / WhatsApp</label>
+                  <input
+                    type="text"
+                    placeholder="ej. 011-4567-8901"
+                    value={newBranchPhone}
+                    onChange={(e) => setNewBranchPhone(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-extrabold text-slate-700 block">Código Corto de Búsqueda (QR/Compradores)</label>
+                <input
+                  type="text"
+                  placeholder="ej. M24-BELGRANO"
+                  value={newBranchCode}
+                  onChange={(e) => setNewBranchCode(e.target.value.toUpperCase())}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900 uppercase focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsNewBranchModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingBranch}
+                  className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white font-extrabold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSubmittingBranch ? 'Creando...' : 'Guardar y Activar Sucursal'}
                 </button>
               </div>
             </form>

@@ -10,6 +10,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Agregado / Mejorado
+- **Gestión Multi-Sucursal y Conmutador de Red de Comercios (`App.tsx` & `Settings.tsx`)**:
+  1. **Conmutador de Sucursales en Encabezado Principal (`App.tsx`)**: Se integró un menú desplegable interactivo en la cabecera superior junto al nombre de la tienda activa. Muestra la lista de todas las sucursales registradas pertenecientes al comerciante, permite conmutar de sucursal en 1 clic y ofrece un acceso directo a *"➕ Registrar Otra Sucursal..."*.
+  2. **Pestaña Dedicada "Mis Sucursales" (`Settings.tsx`)**: Se añadió la sección *"🏢 Mis Sucursales (Red Multi-Tienda)"* en la pantalla de Ajustes. Permite visualizar las sucursales existentes con su ID, correo comercial, dirección, teléfono y código de búsqueda, indicando cuál es la sucursal activa actualmente.
+  3. **Formulario de Registro de Nueva Sucursal**: Se habilitó una ventana modal que permite crear nuevas sucursales al instante especificando su nombre de fantasía, correo identificador, dirección, teléfono y código corto QR.
+  4. **Aislamiento Total de Datos por Sucursal**: Al cambiar de sucursal, el entorno de trabajo actualiza de forma transparente la clave de contexto (`activeStoreEmail`), aislando el inventario, ventas, caja, reportes y empleados para cada local.
 - **Modificación y Horario Personalizado de Empleados (`Employees.tsx`)**:
   1. **Configuración de Horario Personalizado**: Se reemplazó el menú desplegable rígido por un selector flexible que incluye los turnos estándar (Mañana, Tarde, Noche, Rotativo) y la opción **"✏️ Configurar Horario Personalizado..."**. Permite especificar cualquier rango horario (ej. `09:00 - 17:00`, `10:00 a 18:00 (Lunes a Viernes)`, `08:00 - 12:00 / 16:00 - 20:00`) o utilizar botones de atajo rápido para precompletar horarios comunes en 1 clic.
   2. **Acceso Directo a Modificación de Turno desde la Tarjeta**: Se añadió el botón **"✏️ Modificar"** directamente en el bloque de información de turno de cada ficha de empleado en la Nómina de Personal, facilitando la edición inmediata sin buscar en menús.

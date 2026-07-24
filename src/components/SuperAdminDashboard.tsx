@@ -383,6 +383,37 @@ export default function SuperAdminDashboard({
         owners.push({ id: 'store-bigmax', ownerName: 'Administrador BigMAX', storeName: 'BigMAX 24 Horas', email: 'bigmax24h7@gmail.com', plan: 'Profesional', status: 'Activo', registeredDate: '2026-06-20' });
       }
 
+      if (!owners.some(o => o.email === 'sagradocafeoficial@gmail.com')) {
+        updatedAny = true;
+        const sSagrado = {
+          id: 'store-sagradocafe',
+          ownerName: 'Administrador Sagrado Café',
+          storeName: 'Sagrado Café',
+          email: 'sagradocafeoficial@gmail.com',
+          plan: 'Empresarial',
+          status: 'Activo' as const,
+          registeredDate: '2026-07-24'
+        };
+        owners.push(sSagrado);
+        try {
+          setDoc(doc(db, 'storeOwners', 'store-sagradocafe'), sSagrado).catch(err => console.warn(err));
+          setDoc(doc(db, 'storeSettings', 'sagradocafeoficial@gmail.com'), {
+            name: 'Sagrado Café',
+            email: 'sagradocafeoficial@gmail.com',
+            ownerEmail: 'sagradocafeoficial@gmail.com',
+            storeCode: 'M24-SAGRADO',
+            address: 'Av. Corrientes 1500, CABA',
+            phone: '+54 11 5566-7788',
+            schedule: 'Lunes a Domingo 07:00 a 23:00',
+            plan: 'Empresarial',
+            isConfigured: true,
+            country: 'Argentina',
+            province: 'CABA',
+            city: 'Palermo'
+          }).catch(err => console.warn(err));
+        } catch (e) { console.warn(e); }
+      }
+
       if (updatedAny) {
         localStorage.setItem('saas_registered_store_owners', JSON.stringify(owners));
         try {

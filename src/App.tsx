@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Preferences } from '@capacitor/preferences';
-import { Menu, Building2, ShieldEllipsis, Crown, CheckCircle2, BookOpen, ChevronRight, ChefHat, AlertTriangle } from 'lucide-react';
+import { Menu, Building2, ShieldEllipsis, Crown, CheckCircle2, BookOpen, ChevronRight, ChefHat, AlertTriangle, ChevronDown, Plus, Check, Store, Mail } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import POS from './components/POS';
 import Inventory from './components/Inventory';
@@ -242,6 +242,14 @@ export default function App() {
     return localStorage.getItem('simulated_store_email');
   });
 
+  const [selectedStoreEmail, setSelectedStoreEmail] = useState<string | null>(() => {
+    return localStorage.getItem('selected_store_email');
+  });
+
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState<boolean>(false);
+
+  const [userStores, setUserStores] = useState<Array<{ id: string; storeName: string; email: string; ownerEmail?: string; plan?: string; status?: string }>>([]);
+
   const isSuperAdmin = currentUser ? (currentUser.id === 'emp-1' || currentUser.email === 'pezziniarg@gmail.com') : false;
   const isSupportCollaborator = currentUser ? (currentUser.role === 'Soporte' || currentUser.role === 'SupportCollaborator') : false;
   const canAccessSuperAdmin = isSuperAdmin || isSupportCollaborator;
@@ -361,9 +369,9 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_STORE_SETTINGS;
   });
 
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'generales' | 'costos' | 'arca' | 'compliance'>('generales');
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'generales' | 'sucursales' | 'costos' | 'arca' | 'compliance'>('generales');
 
-  const handleOpenSettingsTab = (tab: 'generales' | 'costos' | 'arca' | 'compliance') => {
+  const handleOpenSettingsTab = (tab: 'generales' | 'sucursales' | 'costos' | 'arca' | 'compliance') => {
     setActiveSettingsTab(tab);
     setCurrentTab('settings');
   };
@@ -576,8 +584,111 @@ export default function App() {
   }, [cashierSessions, isLoadingData]);
 
   const activeStoreEmail = currentUser
-    ? (canAccessSuperAdmin && isSimulatingShop && simulatedStoreEmail ? simulatedStoreEmail : (currentUser.storeEmail || currentUser.email || 'global'))
+    ? (canAccessSuperAdmin && isSimulatingShop && simulatedStoreEmail 
+        ? simulatedStoreEmail 
+        : (selectedStoreEmail || currentUser.storeEmail || currentUser.email || 'global'))
     : 'global';
+
+  const handleSwitchStore = (email: string) => {
+    const clean = email.trim().toLowerCase();
+    setSelectedStoreEmail(clean);
+    localStorage.setItem('selected_store_email', clean);
+  };
+
+  const handleCreateNewBranch = async (branchData: {
+    storeName: string;
+    email: string;
+    address?: string;
+    phone?: string;
+    storeCode?: string;
+  }) => {
+    const newStoreId = `store-${Date.now()}`;
+    const ownerEmail = currentUser?.email || 'global';
+    const newEmail = branchData.email.trim().toLowerCase();
+
+    const newStoreOwner = {
+      id: newStoreId,
+      ownerName: currentUser?.name || storeSettings.name || 'Propietario MAX24',
+      storeName: branchData.storeName,
+      email: newEmail,
+      ownerEmail: ownerEmail,
+      plan: activeLicense?.plan || 'Empresarial',
+      status: 'Activo' as const,
+      registeredDate: new Date().toISOString().split('T')[0]
+    };
+
+    const initialBranchSettings: StoreSettings = {
+      name: branchData.storeName,
+      address: branchData.address || '',
+      phone: branchData.phone || '',
+      storeCode: branchData.storeCode || `M24-${branchData.storeName.substring(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '')}`,
+      email: newEmail,
+      ownerEmail: ownerEmail,
+      plan: activeLicense?.plan || 'Empresarial',
+      isConfigured: true,
+      schedule: '24 Horas',
+      country: 'Argentina',
+      province: 'CABA',
+      city: 'Belgrano'
+    };
+
+    try {
+      await setDoc(doc(db, 'storeOwners', newStoreId), newStoreOwner);
+      await setDoc(doc(db, 'storeSettings', newEmail), initialBranchSettings);
+
+      setUserStores(prev => [newStoreOwner, ...prev.filter(s => s.id !== newStoreId)]);
+      handleSwitchStore(newEmail);
+      alert(`¡Sucursal "${branchData.storeName}" creada con éxito! Se ha activado esta sucursal en tu panel.`);
+    } catch (err: any) {
+      console.error("Error creating new branch:", err);
+      alert("Error al crear la sucursal: " + (err.message || String(err)));
+    }
+  };
+
+  // Load user stores dynamically from Firestore
+  useEffect(() => {
+    if (!currentUser || currentUser.role === 'Comprador' || currentUser.role === 'Proveedor') {
+      setUserStores([]);
+      return;
+    }
+
+    let isSubscribed = true;
+    async function loadUserStores() {
+      try {
+        const myEmail = (currentUser.email || '').trim().toLowerCase();
+        const myOwnerEmail = (currentUser.storeEmail || currentUser.email || '').trim().toLowerCase();
+
+        const snap1 = await getDocs(query(collection(db, 'storeOwners'), where('email', '==', myEmail)));
+        const snap2 = await getDocs(query(collection(db, 'storeOwners'), where('ownerEmail', '==', myEmail)));
+        const snap3 = myOwnerEmail !== myEmail ? await getDocs(query(collection(db, 'storeOwners'), where('ownerEmail', '==', myOwnerEmail))) : { docs: [] };
+
+        if (!isSubscribed) return;
+
+        const map = new Map<string, any>();
+        [...snap1.docs, ...snap2.docs, ...(snap3.docs || [])].forEach(d => {
+          map.set(d.id, { id: d.id, ...d.data() });
+        });
+
+        if (map.size === 0 && storeSettings && activeStoreEmail !== 'global') {
+          map.set('current-store', {
+            id: 'current-store',
+            storeName: storeSettings.name || 'Mi Comercio',
+            email: activeStoreEmail,
+            ownerEmail: myEmail,
+            plan: activeLicense?.plan || 'Empresarial',
+            status: 'Activo'
+          });
+        }
+
+        setUserStores(Array.from(map.values()));
+      } catch (err) {
+        console.warn("Error loading user stores:", err);
+      }
+    }
+
+    loadUserStores();
+    return () => { isSubscribed = false; };
+  }, [currentUser, activeStoreEmail, storeSettings?.name, activeLicense?.plan]);
 
   // Load and check subscription trial expiration dynamically from Firestore
   useEffect(() => {
@@ -1075,15 +1186,17 @@ export default function App() {
           
           // Fetch store settings name if configured, otherwise use fallback name
           const settingsSnap = await getDoc(doc(db, 'storeSettings', emailToFind));
-          const currentStoreName = settingsSnap.exists() ? (settingsSnap.data().name || 'Mi Nueva Tienda') : 'Mi Nueva Tienda';
+          const currentStoreName = settingsSnap.exists() 
+            ? (settingsSnap.data().name || (emailToFind === 'sagradocafeoficial@gmail.com' ? 'Sagrado Café' : 'Mi Nueva Tienda')) 
+            : (emailToFind === 'sagradocafeoficial@gmail.com' ? 'Sagrado Café' : 'Mi Nueva Tienda');
           
           const newStoreId = `store-${Date.now()}`;
           const newStoreOwner = {
             id: newStoreId,
-            ownerName: currentUser.name,
+            ownerName: currentUser.name || (emailToFind === 'sagradocafeoficial@gmail.com' ? 'Administrador Sagrado Café' : 'Propietario MAX24'),
             storeName: currentStoreName,
             email: emailToFind,
-            plan: 'Gratuito',
+            plan: emailToFind === 'sagradocafeoficial@gmail.com' ? 'Empresarial' : 'Gratuito',
             status: 'Activo',
             registeredDate: currentUser.joinedDate || new Date().toISOString().split('T')[0],
             notes: 'Sincronizado de forma reactiva en el ciclo de vida del App.'
@@ -2199,6 +2312,11 @@ export default function App() {
             onUpdateSettings={handleUpdateSettings}
             currentUserEmail={currentUser?.email || ''}
             initialTab={activeSettingsTab}
+            userStores={userStores}
+            activeStoreEmail={activeStoreEmail}
+            onSwitchStore={handleSwitchStore}
+            onCreateNewBranch={handleCreateNewBranch}
+            activeLicensePlan={activeLicense?.plan || 'Empresarial'}
           />
         );
       case 'subscription':
@@ -2554,19 +2672,86 @@ export default function App() {
               </>
             ) : (
               <>
-                {/* Standard Client Store Header Elements */}
-                <div className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-slate-100 border border-slate-200 rounded-xl text-[10px] font-mono font-bold text-slate-600 uppercase">
-                  {storeSettings.logoUrl ? (
-                    <img 
-                      src={storeSettings.logoUrl} 
-                      className="w-4.5 h-4.5 rounded object-cover flex-shrink-0" 
-                      referrerPolicy="no-referrer"
-                      alt="" 
-                    />
-                  ) : (
-                    <Building2 className="w-3.5 h-3.5 shrink-0" />
+                {/* Standard Client Store Header Elements with Store Switcher Dropdown */}
+                <div className="relative font-sans">
+                  <button
+                    type="button"
+                    onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-[10px] font-mono font-bold text-slate-800 uppercase transition-all cursor-pointer shadow-2xs"
+                    title="Conmutar entre sucursales de tu comercio"
+                  >
+                    {storeSettings.logoUrl ? (
+                      <img 
+                        src={storeSettings.logoUrl} 
+                        className="w-4 h-4 rounded object-cover flex-shrink-0" 
+                        referrerPolicy="no-referrer"
+                        alt="" 
+                      />
+                    ) : (
+                      <Building2 className="w-3.5 h-3.5 shrink-0 text-orange-500" />
+                    )}
+                    <span className="max-w-[100px] sm:max-w-[150px] truncate">{storeSettings.name}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isStoreDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown menu */}
+                  {isStoreDropdownOpen && (
+                    <div className="absolute left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 font-sans text-xs animate-in fade-in zoom-in-95">
+                      <div className="px-2.5 py-1.5 text-[9.5px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 mb-1">
+                        <span>Mis Sucursales ({userStores.length || 1})</span>
+                        <span className="text-orange-600 font-bold bg-orange-50 px-1.5 py-0.5 rounded text-[8.5px]">
+                          {activeLicense?.plan || 'Empresarial'}
+                        </span>
+                      </div>
+
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {userStores.length > 0 ? (
+                          userStores.map((store) => {
+                            const isCurrent = (store.email || '').trim().toLowerCase() === activeStoreEmail.trim().toLowerCase();
+                            return (
+                              <button
+                                key={store.id}
+                                type="button"
+                                onClick={() => {
+                                  handleSwitchStore(store.email);
+                                  setIsStoreDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                                  isCurrent 
+                                    ? 'bg-orange-50 text-orange-950 font-black border border-orange-200/80' 
+                                    : 'hover:bg-slate-50 text-slate-700 font-semibold'
+                                }`}
+                              >
+                                <div className="truncate pr-2">
+                                  <div className="truncate text-xs">{store.storeName || store.email}</div>
+                                  <div className="text-[9px] text-slate-400 font-mono truncate">{store.email}</div>
+                                </div>
+                                {isCurrent && <Check className="w-4 h-4 text-orange-600 shrink-0" />}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <div className="px-2.5 py-2 text-slate-500 text-[11px] font-semibold">
+                            {storeSettings.name || activeStoreEmail}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-100 mt-1.5 pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsStoreDropdownOpen(false);
+                            handleOpenSettingsTab('sucursales');
+                          }}
+                          className="w-full px-2.5 py-2 bg-orange-500 hover:bg-orange-600 text-white font-extrabold rounded-xl text-center text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>➕ Registrar Otra Sucursal...</span>
+                        </button>
+                      </div>
+                    </div>
                   )}
-                  <span className="max-w-[90px] sm:max-w-[140px] truncate">{storeSettings.name}</span>
                 </div>
                 
                 {/* User security flag info */}
