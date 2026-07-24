@@ -98,7 +98,16 @@ export class POSErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundar
 interface POSProps {
   products: Product[];
   employees: Employee[];
-  onRegisterSale: (saleItems: { productId: string; quantity: number }[], discountPercent: number, paymentMethod: Sale['paymentMethod'], cashReceived: number, sellerId: string, customer?: Customer, includeIva?: boolean, afipFields?: Partial<Sale>) => Sale;
+  onRegisterSale: (
+    saleItems: { productId: string; quantity: number; customProduct?: Product; productName?: string; price?: number }[],
+    discountPercent: number,
+    paymentMethod: Sale['paymentMethod'],
+    cashReceived: number,
+    sellerId: string,
+    customer?: Customer,
+    includeIva?: boolean,
+    afipFields?: Partial<Sale>
+  ) => Sale;
   currentUser: Employee | null;
   storeSettings: StoreSettings;
   customers: Customer[];
@@ -688,7 +697,10 @@ function POS({ products, employees, onRegisterSale, currentUser, storeSettings, 
 
     const itemsToRegister = cart.map(item => ({
       productId: item.product.id,
-      quantity: item.quantity
+      quantity: item.quantity,
+      customProduct: item.product,
+      productName: item.product.name,
+      price: item.product.price
     }));
 
     // Process fiscal billing if selected

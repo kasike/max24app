@@ -1665,7 +1665,7 @@ export default function App() {
 
   // Registering POS Sale
   const handleRegisterSale = (
-    cartItems: { productId: string; quantity: number }[],
+    cartItems: { productId: string; quantity: number; customProduct?: Product; productName?: string; price?: number }[],
     discountPercent: number,
     paymentMethod: Sale['paymentMethod'],
     cashReceived: number,
@@ -1679,7 +1679,7 @@ export default function App() {
 
     // Verify stock availability
     for (const item of cartItems) {
-      const prod = products.find(p => p.id === item.productId) || (item as any).customProduct;
+      const prod = products.find(p => p.id === item.productId) || item.customProduct;
       if (!prod && !item.productId.startsWith('quick-')) {
         throw new Error(`El producto con ID ${item.productId} ya no está disponible en la base de datos.`);
       }
@@ -1690,9 +1690,9 @@ export default function App() {
 
     // Prepare item list details for invoice records
     const registeredItems = cartItems.map(item => {
-      const prodObj = products.find(p => p.id === item.productId) || (item as any).customProduct;
-      const productName = prodObj ? prodObj.name : ((item as any).productName || 'Venta Rápida / Varios');
-      const price = prodObj ? prodObj.price : ((item as any).price || 0);
+      const prodObj = products.find(p => p.id === item.productId) || item.customProduct;
+      const productName = item.productName || (prodObj ? prodObj.name : 'Venta Rápida / Varios');
+      const price = item.price !== undefined ? item.price : (prodObj ? prodObj.price : 0);
       return {
         productId: item.productId,
         productName,

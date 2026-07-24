@@ -260,6 +260,14 @@ Para cada tarea o código generado, se deben cumplir estrictamente los siguiente
   2. **Inyección de Safe Area Top Padding (`App.tsx` & `Sidebar.tsx`)**: Se configuró la barra de cabecera superior con `style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}` y el menú lateral desplegable `<aside>` con `paddingTop` y `paddingBottom` respetando `env(safe-area-inset-top)` y `env(safe-area-inset-bottom)`.
   3. **Target Táctil Mejorado de Menú (`≡` & `X`)**: Se incrementó el área de toque a un mínimo de 42px x 42px con `touch-manipulation`, `z-20`/`z-50` y estado activo visible `active:bg-slate-200`, asegurando una respuesta táctil instantánea en cualquier modelo de iPhone y Android.
 
+### Error 30: Ventas Rápida de Calculadora con Precio $0 y Omisión en Reportes
+* **Fallo:** Al realizar ventas usando la Calculadora Express del POS o ítems rápidos sin producto del catálogo, las ventas se guardaban pero no sumaban en el módulo de Reportes ni figuraban con monto en el balance.
+* **Causa:** El mapeo de la lista de ítems `itemsToRegister` en `POS.tsx` enviaba únicamente `{ productId, quantity }` hacia `handleRegisterSale` en `App.tsx`. Al no existir el ID dinámico (`quick-...`) en el catálogo general `products`, la búsqueda en base de datos devolvía `undefined` y el precio resultaba en `$0`, registrando la venta con total `$0`.
+* **Solución:**
+  1. **Propagación Completa de Productos Personalizados (`POS.tsx` & `App.tsx`)**: Se incluyeron `customProduct`, `productName` y `price` dentro del objeto mapeado de `itemsToRegister`.
+  2. **Resolución de Precio en Servidor / Estado (`App.tsx`)**: Se actualizó `handleRegisterSale` para que extraiga prioritariamente `item.price` e `item.productName` cuando provengan de la calculadora rápida o productos dinámicos, garantizando el registro del precio exacto ingresado por el cajero (ej. `$50.370`).
+  3. **Desglose Específico de Transferencias en Reportes (`Reports.tsx`)**: Se integró el rastreo y balance discriminado de `Transferencias` bancarias en las tarjetas de resumen y en los tickets Z-Report de arqueo de caja.
+
 ## 🚀 Directrices para Futuras IAs (Instrucciones Permanentes)
 1. **Sincronización Multitenant Strict:** Cada vez que se carguen, guarden o actualicen productos, se debe usar siempre `activeStoreEmail` (que resuelve correctamente el rol simulado del SuperAdmin o el correo de comercio real autenticado).
 2. **Evitar redundancias de TAD:** No sugieras recalcular la tasa del FNA para este lote; ya está fijada en $4,11.

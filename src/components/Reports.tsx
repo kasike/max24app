@@ -231,6 +231,7 @@ export default function Reports({
     let cashSales = 0;
     let qrSales = 0;
     let cardSales = 0;
+    let transferSales = 0;
     let creditAccountSales = 0;
 
     dateFilteredSales.forEach(s => {
@@ -238,10 +239,11 @@ export default function Reports({
         cashSales += s.total;
       } else if (s.paymentMethod === 'MercadoPago' || s.paymentMethod === 'Pago Móvil') {
         qrSales += s.total;
+      } else if (s.paymentMethod === 'Transferencia') {
+        transferSales += s.total;
       } else if (
         s.paymentMethod === 'Tarjeta de Crédito' || 
-        s.paymentMethod === 'Tarjeta de Débito' || 
-        s.paymentMethod === 'Transferencia'
+        s.paymentMethod === 'Tarjeta de Débito'
       ) {
         cardSales += s.total;
       } else if (s.paymentMethod === 'Cuenta Corriente') {
@@ -264,6 +266,7 @@ export default function Reports({
       cashSales,
       qrSales,
       cardSales,
+      transferSales,
       creditAccountSales,
       totalInitialCash,
       expectedCashInDrawer
@@ -312,6 +315,7 @@ export default function Reports({
             Efectivo: dailySummary.cashSales,
             MercadoPago: dailySummary.qrSales,
             Tarjeta: dailySummary.cardSales,
+            Transferencia: dailySummary.transferSales,
             'Cuenta Corriente': dailySummary.creditAccountSales
           }
         };
@@ -329,6 +333,7 @@ export default function Reports({
             Efectivo: dailySummary.cashSales,
             MercadoPago: dailySummary.qrSales,
             Tarjeta: dailySummary.cardSales,
+            Transferencia: dailySummary.transferSales,
             'Cuenta Corriente': dailySummary.creditAccountSales
           },
           debtPaymentsCollected: 0,
@@ -357,6 +362,7 @@ export default function Reports({
             Efectivo: dailySummary.cashSales,
             MercadoPago: dailySummary.qrSales,
             Tarjeta: dailySummary.cardSales,
+            Transferencia: dailySummary.transferSales,
             'Cuenta Corriente': dailySummary.creditAccountSales
           },
           debtPaymentsCollected: 0,
@@ -754,19 +760,20 @@ export default function Reports({
             </p>
           </div>
 
-          {/* Tarjetas / Cuentas Corrientes (Fiado) */}
+          {/* Tarjetas / Transferencias / Fiado */}
           <div className="bg-gradient-to-br from-purple-50 to-indigo-50/40 border border-purple-200/80 p-5 rounded-2xl relative overflow-hidden space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-purple-700 uppercase tracking-wider">Tarjetas / Fiado</span>
+              <span className="text-xs font-extrabold text-purple-700 uppercase tracking-wider">Tarjetas / Banco / Fiado</span>
               <div className="p-2 bg-purple-500/10 text-purple-600 rounded-xl">
                 <CreditCard className="w-4 h-4" />
               </div>
             </div>
             <p className="text-2xl sm:text-3xl font-black text-purple-950 font-mono tracking-tight">
-              ${(dailySummary.cardSales + dailySummary.creditAccountSales).toLocaleString('es-AR')}
+              ${(dailySummary.cardSales + dailySummary.transferSales + dailySummary.creditAccountSales).toLocaleString('es-AR')}
             </p>
-            <div className="flex items-center justify-between text-xs text-purple-800 font-semibold pt-1 border-t border-purple-200/60">
+            <div className="flex flex-wrap items-center justify-between text-xs text-purple-800 font-semibold pt-1 border-t border-purple-200/60 gap-y-1">
               <span>Tarjetas: ${dailySummary.cardSales.toLocaleString('es-AR')}</span>
+              <span>Transf: ${dailySummary.transferSales.toLocaleString('es-AR')}</span>
               <span>Fiado: ${dailySummary.creditAccountSales.toLocaleString('es-AR')}</span>
             </div>
           </div>
@@ -1426,8 +1433,12 @@ export default function Reports({
                   <span>${(selectedZReportSession.salesByMethod?.['MercadoPago'] || 0).toLocaleString('es-AR')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>💳 Tarjeta / Transf:</span>
+                  <span>💳 Tarjetas:</span>
                   <span>${(selectedZReportSession.salesByMethod?.['Tarjeta'] || 0).toLocaleString('es-AR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>🏦 Transferencias:</span>
+                  <span>${(selectedZReportSession.salesByMethod?.['Transferencia'] || 0).toLocaleString('es-AR')}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>🤝 Cuenta Corriente:</span>

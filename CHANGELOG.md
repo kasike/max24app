@@ -10,6 +10,10 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 ## [Unreleased] - 2026-07-24
 
 ### Corregido
+- **Sincronización de Ventas por Calculadora Express y Desglose por Transferencia en Reportes (`POS.tsx`, `App.tsx` & `Reports.tsx`)**:
+  1. Se corrigió la pérdida de precio en ventas expresas/calculadora pasando `customProduct`, `productName` y `price` dentro de `itemsToRegister` desde `POS.tsx` hacia `handleRegisterSale` en `App.tsx`. Anteriormente, al mapearse únicamente `{ productId, quantity }` y no existir el ID dinámico (`quick-...`) en el catálogo general, la búsqueda del producto devolvía `undefined`, asignando precio `$0` y dejando la venta registrada en `$0`.
+  2. Se actualizó `App.tsx` para que extraiga prioritariamente `item.price` e `item.productName` cuando provengan de ventas por calculadora, asegurando que el total de la venta (ej. `$50.370`) se registre e impacte correctamente en la base de datos de Firebase y en el estado global.
+  3. Se añadió el rastreo y desglose específico de pagos con **Transferencia** bancaria dentro del resumen del día y tickets Z-Report en `Reports.tsx`, contabilizándolo junto con Tarjetas y Fiados de forma clara y transparente.
 - **Optimización de Margen Superior de Seguridad en iOS / iPhone para Menú de Navegación (`App.tsx`, `Sidebar.tsx`, `index.html` & `index.css`)**: Se solucionó la superposición de la barra de estado de iPhone (reloj `12:43`, notch y Dynamic Island) sobre el botón de menú hamburguesa (`≡`) y el texto de "Sucursal Activa":
   1. Se actualizó el meta tag de estado de iOS en `index.html` a `content="default"` evitando que la app renderice por detrás de la hora del sistema.
   2. Se configuraron paddings dinámicos de seguridad CSS `style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}` en la barra de cabecera principal y en el cajón desplegable del menú lateral `<aside>`.
